@@ -98,6 +98,7 @@ public class AuthServiceImpl implements AuthService {
     private UserVO convertToVO(User user) {
         UserVO vo = new UserVO();
         BeanUtils.copyProperties(user, vo);
+        vo.setRoles(userMapper.selectRoleCodesByUserId(user.getId()));
         return vo;
     }
 }

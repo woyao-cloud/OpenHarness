@@ -171,8 +171,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private UserVO convertToVO(User user) {
         UserVO vo = new UserVO();
         BeanUtils.copyProperties(user, vo);
-        // 查询用户角色
-        vo.setRoles(userMapper.selectRolesByUserId(user.getId()));
+        // 查询用户角色编码
+        vo.setRoles(userMapper.selectRoleCodesByUserId(user.getId()));
         return vo;
     }
 }

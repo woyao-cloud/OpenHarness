@@ -59,6 +59,7 @@ export interface UserVO {
   avatar?: string;
   status: number;
   roles: RoleVO[];
+  role?: string;
   createTime: string;
   updateTime: string;
 }

@@ -28,14 +28,22 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // 管理员路由守卫
 const AdminRoute: React.FC = () => {
   const { user, isLoading } = useAuth();
-
+  console.log("user.role:", user);
   if (isLoading) {
     return <div>加载中...</div>;
   }
 
-  const isAdmin = user?.roles?.some(r => r.roleCode === 'ADMIN');
+  let isAdmin = false;
+  
+  if (user?.roles?.some(r => r.roleCode === 'ADMIN')) {
+    isAdmin = true;
+  } else if (user?.role === 'ADMIN') {
+    isAdmin = true;
+  }
+  console.log("isAdmin:", isAdmin);
+
   if (!isAdmin) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/profile" replace />;
   }
 
   return <Outlet />;

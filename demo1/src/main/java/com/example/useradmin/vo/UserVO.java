@@ -16,7 +16,7 @@ public class UserVO {
     private String phone;
     private String avatar;
     private Integer status;
-    private List<RoleVO> roles;
+    private List<String> roles;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
