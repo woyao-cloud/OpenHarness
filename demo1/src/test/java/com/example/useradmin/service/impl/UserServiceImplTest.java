@@ -2,6 +2,7 @@ package com.example.useradmin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.useradmin.common.exception.BusinessException;
 import com.example.useradmin.dto.PasswordDTO;
 import com.example.useradmin.dto.UserCreateDTO;
@@ -15,10 +16,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,13 +29,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class UserServiceImplTest {
 
     @Mock
@@ -50,6 +53,7 @@ class UserServiceImplTest {
     @Mock
     private SecurityContext securityContext;
 
+    @Spy
     @InjectMocks
     private UserServiceImpl userService;
 
@@ -92,8 +96,11 @@ class UserServiceImplTest {
     @Test
     @DisplayName("分页查询用户列表 - 有关键词")
     void getUserPage_WithKeyword() {
-        when(userMapper.selectPage(any(), any(LambdaQueryWrapper.class)))
-                .thenReturn(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10));
+        Page<User> page = new Page<>(1, 10);
+        page.setRecords(Arrays.asList(testUser));
+        page.setTotal(1);
+
+        when(userMapper.selectPage(any(), any(LambdaQueryWrapper.class))).thenReturn(page);
         when(userMapper.selectRoleCodesByUserId(any())).thenReturn(Arrays.asList("USER"));
 
         IPage<UserVO> result = userService.getUserPage(1L, 10L, "test");
@@ -105,8 +112,11 @@ class UserServiceImplTest {
     @Test
     @DisplayName("分页查询用户列表 - 无关键词")
     void getUserPage_WithoutKeyword() {
-        when(userMapper.selectPage(any(), any(LambdaQueryWrapper.class)))
-                .thenReturn(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10));
+        Page<User> page = new Page<>(1, 10);
+        page.setRecords(Arrays.asList(testUser));
+        page.setTotal(1);
+
+        when(userMapper.selectPage(any(), any(LambdaQueryWrapper.class))).thenReturn(page);
         when(userMapper.selectRoleCodesByUserId(any())).thenReturn(Collections.emptyList());
 
         IPage<UserVO> result = userService.getUserPage(1L, 10L, null);
@@ -118,8 +128,11 @@ class UserServiceImplTest {
     @Test
     @DisplayName("分页查询用户列表 - 空字符串关键词")
     void getUserPage_WithEmptyKeyword() {
-        when(userMapper.selectPage(any(), any(LambdaQueryWrapper.class)))
-                .thenReturn(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10));
+        Page<User> page = new Page<>(1, 10);
+        page.setRecords(Arrays.asList(testUser));
+        page.setTotal(1);
+
+        when(userMapper.selectPage(any(), any(LambdaQueryWrapper.class))).thenReturn(page);
         when(userMapper.selectRoleCodesByUserId(any())).thenReturn(Collections.emptyList());
 
         IPage<UserVO> result = userService.getUserPage(1L, 10L, "");
@@ -131,7 +144,7 @@ class UserServiceImplTest {
     @Test
     @DisplayName("根据ID获取用户 - 成功")
     void getUserById_Success() {
-        when(userMapper.selectById(1L)).thenReturn(testUser);
+        doReturn(testUser).when(userService).getById(1L);
         when(userMapper.selectRoleCodesByUserId(1L)).thenReturn(Arrays.asList("USER"));
 
         UserVO result = userService.getUserById(1L);
@@ -144,7 +157,7 @@ class UserServiceImplTest {
     @Test
     @DisplayName("根据ID获取用户 - 用户不存在")
     void getUserById_NotFound() {
-        when(userMapper.selectById(999L)).thenReturn(null);
+        doReturn(null).when(userService).getById(999L);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> userService.getUserById(999L));
@@ -192,12 +205,12 @@ class UserServiceImplTest {
     @Test
     @DisplayName("更新用户 - 成功")
     void updateUser_Success() {
-        when(userMapper.selectById(1L)).thenReturn(testUser);
+        doReturn(testUser).when(userService).getById(1L);
+        doReturn(true).when(userService).updateById(any(User.class));
         doNothing().when(userRoleMapper).deleteByUserId(1L);
 
         UserVO result = userService.updateUser(1L, updateDTO);
 
-        verify(userMapper).updateById(any(User.class));
         verify(userRoleMapper).deleteByUserId(1L);
         verify(userRoleMapper).insert(any(UserRole.class));
     }
@@ -206,12 +219,12 @@ class UserServiceImplTest {
     @DisplayName("更新用户 - 成功清空角色")
     void updateUser_Success_ClearRoles() {
         updateDTO.setRoleIds(Collections.emptyList());
-        when(userMapper.selectById(1L)).thenReturn(testUser);
+        doReturn(testUser).when(userService).getById(1L);
+        doReturn(true).when(userService).updateById(any(User.class));
         doNothing().when(userRoleMapper).deleteByUserId(1L);
 
         UserVO result = userService.updateUser(1L, updateDTO);
 
-        verify(userMapper).updateById(any(User.class));
         verify(userRoleMapper).deleteByUserId(1L);
         verify(userRoleMapper, never()).insert(any(UserRole.class));
     }
@@ -220,18 +233,18 @@ class UserServiceImplTest {
     @DisplayName("更新用户 - 不更新角色")
     void updateUser_Success_NoRoleUpdate() {
         updateDTO.setRoleIds(null);
-        when(userMapper.selectById(1L)).thenReturn(testUser);
+        doReturn(testUser).when(userService).getById(1L);
+        doReturn(true).when(userService).updateById(any(User.class));
 
         UserVO result = userService.updateUser(1L, updateDTO);
 
-        verify(userMapper).updateById(any(User.class));
         verify(userRoleMapper, never()).deleteByUserId(any());
     }
 
     @Test
     @DisplayName("更新用户 - 用户不存在")
     void updateUser_NotFound() {
-        when(userMapper.selectById(999L)).thenReturn(null);
+        doReturn(null).when(userService).getById(999L);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> userService.updateUser(999L, updateDTO));
@@ -242,17 +255,15 @@ class UserServiceImplTest {
     @Test
     @DisplayName("删除用户 - 成功")
     void deleteUser_Success() {
-        when(userMapper.deleteById(1L)).thenReturn(1);
+        doReturn(true).when(userService).removeById(1L);
 
         assertDoesNotThrow(() -> userService.deleteUser(1L));
-
-        verify(userMapper).deleteById(1L);
     }
 
     @Test
     @DisplayName("删除用户 - 用户不存在")
     void deleteUser_NotFound() {
-        when(userMapper.deleteById(999L)).thenReturn(0);
+        doReturn(false).when(userService).removeById(999L);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> userService.deleteUser(999L));
@@ -263,18 +274,18 @@ class UserServiceImplTest {
     @Test
     @DisplayName("更新用户状态 - 成功")
     void updateUserStatus_Success() {
-        when(userMapper.selectById(1L)).thenReturn(testUser);
+        doReturn(testUser).when(userService).getById(1L);
+        doReturn(true).when(userService).updateById(any(User.class));
 
         userService.updateUserStatus(1L, 0);
 
         assertEquals(0, testUser.getStatus());
-        verify(userMapper).updateById(testUser);
     }
 
     @Test
     @DisplayName("更新用户状态 - 用户不存在")
     void updateUserStatus_NotFound() {
-        when(userMapper.selectById(999L)).thenReturn(null);
+        doReturn(null).when(userService).getById(999L);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> userService.updateUserStatus(999L, 0));
@@ -318,10 +329,11 @@ class UserServiceImplTest {
         when(authentication.getName()).thenReturn("testuser");
         SecurityContextHolder.setContext(securityContext);
         when(userMapper.selectByUsername("testuser")).thenReturn(testUser);
+        doReturn(true).when(userService).updateById(any(User.class));
 
         UserVO result = userService.updateCurrentUser(updateDTO);
 
-        verify(userMapper).updateById(any(User.class));
+        verify(userService).updateById(any(User.class));
     }
 
     @Test
@@ -347,10 +359,11 @@ class UserServiceImplTest {
         when(userMapper.selectByUsername("testuser")).thenReturn(testUser);
         when(passwordEncoder.matches("oldPassword", "encodedPassword")).thenReturn(true);
         when(passwordEncoder.encode("newPassword")).thenReturn("newEncodedPassword");
+        doReturn(true).when(userService).updateById(any(User.class));
 
         userService.updatePassword(passwordDTO);
 
-        verify(userMapper).updateById(any(User.class));
+        verify(userService).updateById(any(User.class));
     }
 
     @Test

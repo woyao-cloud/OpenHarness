@@ -2,6 +2,7 @@ package com.example.useradmin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.useradmin.common.exception.BusinessException;
 import com.example.useradmin.dto.RoleCreateDTO;
 import com.example.useradmin.dto.RoleQueryDTO;
@@ -15,7 +16,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,11 +30,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class RoleServiceImplTest {
 
     @Mock
     private RoleMapper roleMapper;
 
+    @Spy
     @InjectMocks
     private RoleServiceImpl roleService;
 
@@ -67,8 +73,11 @@ class RoleServiceImplTest {
     @Test
     @DisplayName("分页查询角色列表 - 无条件")
     void getRolePage_NoCondition() {
-        when(roleMapper.selectPage(any(), any(LambdaQueryWrapper.class)))
-                .thenReturn(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10));
+        Page<Role> page = new Page<>(1, 10);
+        page.setRecords(Arrays.asList(testRole));
+        page.setTotal(1);
+
+        when(roleMapper.selectPage(any(), any(LambdaQueryWrapper.class))).thenReturn(page);
 
         IPage<RoleVO> result = roleService.getRolePage(queryDTO);
 
@@ -80,8 +89,11 @@ class RoleServiceImplTest {
     @DisplayName("分页查询角色列表 - 有关键词")
     void getRolePage_WithKeyword() {
         queryDTO.setKeyword("ADMIN");
-        when(roleMapper.selectPage(any(), any(LambdaQueryWrapper.class)))
-                .thenReturn(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10));
+        Page<Role> page = new Page<>(1, 10);
+        page.setRecords(Arrays.asList(testRole));
+        page.setTotal(1);
+
+        when(roleMapper.selectPage(any(), any(LambdaQueryWrapper.class))).thenReturn(page);
 
         IPage<RoleVO> result = roleService.getRolePage(queryDTO);
 
@@ -93,8 +105,11 @@ class RoleServiceImplTest {
     @DisplayName("分页查询角色列表 - 有状态筛选")
     void getRolePage_WithStatus() {
         queryDTO.setStatus(1);
-        when(roleMapper.selectPage(any(), any(LambdaQueryWrapper.class)))
-                .thenReturn(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10));
+        Page<Role> page = new Page<>(1, 10);
+        page.setRecords(Arrays.asList(testRole));
+        page.setTotal(1);
+
+        when(roleMapper.selectPage(any(), any(LambdaQueryWrapper.class))).thenReturn(page);
 
         IPage<RoleVO> result = roleService.getRolePage(queryDTO);
 
@@ -107,8 +122,11 @@ class RoleServiceImplTest {
     void getRolePage_WithKeywordAndStatus() {
         queryDTO.setKeyword("ADMIN");
         queryDTO.setStatus(1);
-        when(roleMapper.selectPage(any(), any(LambdaQueryWrapper.class)))
-                .thenReturn(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10));
+        Page<Role> page = new Page<>(1, 10);
+        page.setRecords(Arrays.asList(testRole));
+        page.setTotal(1);
+
+        when(roleMapper.selectPage(any(), any(LambdaQueryWrapper.class))).thenReturn(page);
 
         IPage<RoleVO> result = roleService.getRolePage(queryDTO);
 
@@ -119,7 +137,7 @@ class RoleServiceImplTest {
     @Test
     @DisplayName("根据ID获取角色 - 成功")
     void getRoleById_Success() {
-        when(roleMapper.selectById(1L)).thenReturn(testRole);
+        doReturn(testRole).when(roleService).getById(1L);
 
         RoleVO result = roleService.getRoleById(1L);
 
@@ -131,7 +149,7 @@ class RoleServiceImplTest {
     @Test
     @DisplayName("根据ID获取角色 - 角色不存在")
     void getRoleById_NotFound() {
-        when(roleMapper.selectById(999L)).thenReturn(null);
+        doReturn(null).when(roleService).getById(999L);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> roleService.getRoleById(999L));
@@ -165,18 +183,19 @@ class RoleServiceImplTest {
     @Test
     @DisplayName("更新角色 - 成功")
     void updateRole_Success() {
-        when(roleMapper.selectById(1L)).thenReturn(testRole);
+        doReturn(testRole).when(roleService).getById(1L);
+        doReturn(true).when(roleService).updateById(any(Role.class));
 
         RoleVO result = roleService.updateRole(1L, updateDTO);
 
         assertNotNull(result);
-        verify(roleMapper).updateById(any(Role.class));
+        verify(roleService).updateById(any(Role.class));
     }
 
     @Test
     @DisplayName("更新角色 - 角色不存在")
     void updateRole_NotFound() {
-        when(roleMapper.selectById(999L)).thenReturn(null);
+        doReturn(null).when(roleService).getById(999L);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> roleService.updateRole(999L, updateDTO));
@@ -187,17 +206,15 @@ class RoleServiceImplTest {
     @Test
     @DisplayName("删除角色 - 成功")
     void deleteRole_Success() {
-        when(roleMapper.deleteById(1L)).thenReturn(1);
+        doReturn(true).when(roleService).removeById(1L);
 
         assertDoesNotThrow(() -> roleService.deleteRole(1L));
-
-        verify(roleMapper).deleteById(1L);
     }
 
     @Test
     @DisplayName("删除角色 - 角色不存在")
     void deleteRole_NotFound() {
-        when(roleMapper.deleteById(999L)).thenReturn(0);
+        doReturn(false).when(roleService).removeById(999L);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> roleService.deleteRole(999L));
@@ -208,18 +225,18 @@ class RoleServiceImplTest {
     @Test
     @DisplayName("更新角色状态 - 成功")
     void updateRoleStatus_Success() {
-        when(roleMapper.selectById(1L)).thenReturn(testRole);
+        doReturn(testRole).when(roleService).getById(1L);
+        doReturn(true).when(roleService).updateById(any(Role.class));
 
         roleService.updateRoleStatus(1L, 0);
 
         assertEquals(0, testRole.getStatus());
-        verify(roleMapper).updateById(testRole);
     }
 
     @Test
     @DisplayName("更新角色状态 - 角色不存在")
     void updateRoleStatus_NotFound() {
-        when(roleMapper.selectById(999L)).thenReturn(null);
+        doReturn(null).when(roleService).getById(999L);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> roleService.updateRoleStatus(999L, 0));

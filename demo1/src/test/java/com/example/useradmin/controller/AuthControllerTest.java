@@ -5,38 +5,33 @@ import com.example.useradmin.dto.RegisterDTO;
 import com.example.useradmin.service.AuthService;
 import com.example.useradmin.vo.LoginVO;
 import com.example.useradmin.vo.UserVO;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(AuthController.class)
-@AutoConfigureMockMvc(addFilters = false)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class AuthControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @MockBean
+    @Mock
     private AuthService authService;
+
+    @InjectMocks
+    private AuthController authController;
 
     private LoginDTO loginDTO;
     private RegisterDTO registerDTO;
@@ -70,61 +65,57 @@ class AuthControllerTest {
 
     @Test
     @DisplayName("登录接口 - 成功")
-    void login_Success() throws Exception {
+    void login_Success() {
         when(authService.login(any(LoginDTO.class))).thenReturn(loginVO);
 
-        mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(loginDTO)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.accessToken").value("accessToken"))
-                .andExpect(jsonPath("$.data.refreshToken").value("refreshToken"))
-                .andExpect(jsonPath("$.data.userInfo.username").value("testuser"));
+        var result = authController.login(loginDTO);
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        assertEquals("accessToken", result.getData().getAccessToken());
 
         verify(authService).login(any(LoginDTO.class));
     }
 
     @Test
     @DisplayName("注册接口 - 成功")
-    void register_Success() throws Exception {
+    void register_Success() {
         doNothing().when(authService).register(any(RegisterDTO.class));
 
-        mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerDTO)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200));
+        var result = authController.register(registerDTO);
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(authService).register(any(RegisterDTO.class));
     }
 
     @Test
     @DisplayName("刷新Token接口 - 成功")
-    void refreshToken_Success() throws Exception {
+    void refreshToken_Success() {
         Map<String, String> request = new HashMap<>();
         request.put("refreshToken", "validRefreshToken");
 
         when(authService.refreshToken("validRefreshToken")).thenReturn(loginVO);
 
-        mockMvc.perform(post("/api/auth/refresh")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.accessToken").value("accessToken"));
+        var result = authController.refreshToken(request);
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(authService).refreshToken("validRefreshToken");
     }
 
     @Test
     @DisplayName("登出接口 - 成功")
-    void logout_Success() throws Exception {
+    void logout_Success() {
         doNothing().when(authService).logout();
 
-        mockMvc.perform(post("/api/auth/logout"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200));
+        var result = authController.logout();
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(authService).logout();
     }

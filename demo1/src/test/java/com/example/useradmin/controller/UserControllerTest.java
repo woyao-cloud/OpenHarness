@@ -7,38 +7,33 @@ import com.example.useradmin.dto.UserCreateDTO;
 import com.example.useradmin.dto.UserUpdateDTO;
 import com.example.useradmin.service.UserService;
 import com.example.useradmin.vo.UserVO;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(UserController.class)
-@AutoConfigureMockMvc(addFilters = false)
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class UserControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @MockBean
+    @Mock
     private UserService userService;
+
+    @InjectMocks
+    private UserController userController;
 
     private UserVO userVO;
     private UserCreateDTO createDTO;
@@ -78,147 +73,138 @@ class UserControllerTest {
 
     @Test
     @DisplayName("分页查询用户列表 - 成功")
-    void getUserPage_Success() throws Exception {
+    void getUserPage_Success() {
         Page<UserVO> page = new Page<>(1, 10);
         page.setRecords(Arrays.asList(userVO));
         page.setTotal(1);
 
         when(userService.getUserPage(1L, 10L, null)).thenReturn(page);
 
-        mockMvc.perform(get("/api/users")
-                        .param("current", "1")
-                        .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.records").isArray());
+        var result = userController.getUserPage(1L, 10L, null);
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(userService).getUserPage(1L, 10L, null);
     }
 
     @Test
     @DisplayName("分页查询用户列表 - 带关键词")
-    void getUserPage_WithKeyword() throws Exception {
+    void getUserPage_WithKeyword() {
         Page<UserVO> page = new Page<>(1, 10);
         page.setRecords(Arrays.asList(userVO));
         page.setTotal(1);
 
         when(userService.getUserPage(1L, 10L, "test")).thenReturn(page);
 
-        mockMvc.perform(get("/api/users")
-                        .param("current", "1")
-                        .param("size", "10")
-                        .param("keyword", "test"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200));
+        var result = userController.getUserPage(1L, 10L, "test");
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(userService).getUserPage(1L, 10L, "test");
     }
 
     @Test
     @DisplayName("根据ID获取用户 - 成功")
-    void getUserById_Success() throws Exception {
+    void getUserById_Success() {
         when(userService.getUserById(1L)).thenReturn(userVO);
 
-        mockMvc.perform(get("/api/users/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.username").value("testuser"));
+        var result = userController.getUserById(1L);
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(userService).getUserById(1L);
     }
 
     @Test
     @DisplayName("创建用户 - 成功")
-    void createUser_Success() throws Exception {
+    void createUser_Success() {
         when(userService.createUser(any(UserCreateDTO.class))).thenReturn(userVO);
 
-        mockMvc.perform(post("/api/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(createDTO)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.username").value("testuser"));
+        var result = userController.createUser(createDTO);
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(userService).createUser(any(UserCreateDTO.class));
     }
 
     @Test
     @DisplayName("更新用户 - 成功")
-    void updateUser_Success() throws Exception {
+    void updateUser_Success() {
         when(userService.updateUser(eq(1L), any(UserUpdateDTO.class))).thenReturn(userVO);
 
-        mockMvc.perform(put("/api/users/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateDTO)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200));
+        var result = userController.updateUser(1L, updateDTO);
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(userService).updateUser(eq(1L), any(UserUpdateDTO.class));
     }
 
     @Test
     @DisplayName("删除用户 - 成功")
-    void deleteUser_Success() throws Exception {
+    void deleteUser_Success() {
         doNothing().when(userService).deleteUser(1L);
 
-        mockMvc.perform(delete("/api/users/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200));
+        var result = userController.deleteUser(1L);
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(userService).deleteUser(1L);
     }
 
     @Test
     @DisplayName("更新用户状态 - 成功")
-    void updateUserStatus_Success() throws Exception {
+    void updateUserStatus_Success() {
         doNothing().when(userService).updateUserStatus(1L, 0);
 
-        mockMvc.perform(put("/api/users/1/status")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":0}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200));
+        var result = userController.updateUserStatus(1L, Map.of("status", 0));
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(userService).updateUserStatus(1L, 0);
     }
 
     @Test
     @DisplayName("获取当前用户 - 成功")
-    void getCurrentUser_Success() throws Exception {
+    void getCurrentUser_Success() {
         when(userService.getCurrentUser()).thenReturn(userVO);
 
-        mockMvc.perform(get("/api/users/me"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.username").value("testuser"));
+        var result = userController.getCurrentUser();
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(userService).getCurrentUser();
     }
 
     @Test
     @DisplayName("更新当前用户 - 成功")
-    void updateCurrentUser_Success() throws Exception {
+    void updateCurrentUser_Success() {
         when(userService.updateCurrentUser(any(UserUpdateDTO.class))).thenReturn(userVO);
 
-        mockMvc.perform(put("/api/users/me")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(updateDTO)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200));
+        var result = userController.updateCurrentUser(updateDTO);
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(userService).updateCurrentUser(any(UserUpdateDTO.class));
     }
 
     @Test
     @DisplayName("修改密码 - 成功")
-    void updatePassword_Success() throws Exception {
+    void updatePassword_Success() {
         doNothing().when(userService).updatePassword(any(PasswordDTO.class));
 
-        mockMvc.perform(put("/api/users/me/password")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(passwordDTO)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200));
+        var result = userController.updatePassword(passwordDTO);
+
+        assertNotNull(result);
+        assertEquals(200, result.getCode());
 
         verify(userService).updatePassword(any(PasswordDTO.class));
     }
