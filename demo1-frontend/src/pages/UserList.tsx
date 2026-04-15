@@ -64,11 +64,11 @@ const UserList: React.FC = () => {
       title: '角色',
       dataIndex: 'roles',
       key: 'roles',
-      render: (roles: { roleName: string; roleCode: string }[]) => (
+      render: (roles: string[]) => (
         <Space size="small" wrap>
-          {roles?.map((role) => (
-            <Tag key={role.roleCode} color={role.roleCode === 'ADMIN' ? 'red' : 'blue'}>
-              {role.roleName}
+          {roles?.map((role, index) => (
+            <Tag key={index} color={role === 'ADMIN' ? 'red' : 'blue'}>
+              {role}
             </Tag>
           ))}
         </Space>
