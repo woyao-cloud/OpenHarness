@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import MainLayout from '@/components/layout/MainLayout';
 import Login from '@/pages/Login';
@@ -10,12 +10,9 @@ import RoleDetail from '@/pages/RoleDetail';
 import Profile from '@/pages/Profile';
 import React from 'react';
 
-// 路由守卫组件
-const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean }> = ({ 
-  children, 
-  adminOnly = false 
-}) => {
-  const { isAuthenticated, user, isLoading } = useAuth();
+// 路由守卫组件 - 仅检查登录状态
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return <div>加载中...</div>;
@@ -25,11 +22,23 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
     return <Navigate to="/login" replace />;
   }
 
-  if (adminOnly && !user?.roles?.some(r => r.roleCode === 'ADMIN')) {
+  return <>{children}</>;
+};
+
+// 管理员路由守卫
+const AdminRoute: React.FC = () => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div>加载中...</div>;
+  }
+
+  const isAdmin = user?.roles?.some(r => r.roleCode === 'ADMIN');
+  if (!isAdmin) {
     return <Navigate to="/" replace />;
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 };
 
 // 公开路由
@@ -77,40 +86,25 @@ export const router = createBrowserRouter([
         element: <Navigate to="/users" replace />,
       },
       {
-        path: 'users',
-        element: (
-          <ProtectedRoute adminOnly>
-            <UserList />
-          </ProtectedRoute>
-        ),
+        path: 'profile',
+        element: <Profile />,
       },
+      // 管理员专属路由
       {
-        path: 'users/:id',
-        element: (
-          <ProtectedRoute adminOnly>
-            <UserDetail />
-          </ProtectedRoute>
-        ),
+        path: 'users',
+        element: <AdminRoute />,
+        children: [
+          { index: true, element: <UserList /> },
+          { path: ':id', element: <UserDetail /> },
+        ],
       },
       {
         path: 'roles',
-        element: (
-          <ProtectedRoute adminOnly>
-            <RoleList />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'roles/:id',
-        element: (
-          <ProtectedRoute adminOnly>
-            <RoleDetail />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: 'profile',
-        element: <Profile />,
+        element: <AdminRoute />,
+        children: [
+          { index: true, element: <RoleList /> },
+          { path: ':id', element: <RoleDetail /> },
+        ],
       },
     ],
   },

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { UserVO, LoginVO } from '@/types';
 import { authApi } from '@/api';
 import { setTokens, clearTokens, getAccessToken } from '@/utils/request';
@@ -22,20 +22,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const isAuthenticated = !!user;
 
-  // 初始化时检查登录状态
+  // 刷新用户信息 - 使用 useCallback 避免重复创建函数
+  const refreshUser = useCallback(async () => {
+    const { userApi } = await import('@/api');
+    const profileResponse = await userApi.getProfile();
+    setUser(profileResponse.data.data);
+  }, []);
+
+  // 初始化时检查登录状态 - 只在组件挂载时执行一次
   useEffect(() => {
+    let isMounted = true;
     const initAuth = async () => {
       const token = getAccessToken();
       if (token) {
         try {
-          await refreshUser();
+          const { userApi } = await import('@/api');
+          const profileResponse = await userApi.getProfile();
+          if (isMounted) {
+            setUser(profileResponse.data.data);
+          }
         } catch {
           clearTokens();
         }
       }
-      setIsLoading(false);
+      if (isMounted) {
+        setIsLoading(false);
+      }
     };
     initAuth();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // 登录
@@ -63,15 +80,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(null);
       message.success('已退出登录');
     }
-  };
-
-  // 刷新用户信息
-  const refreshUser = async () => {
-    const response = await authApi.login({ username: '', password: '' }); // 这里应该用获取当前用户信息的接口
-    // 实际上应该用 userApi.getProfile()
-    const { userApi } = await import('@/api');
-    const profileResponse = await userApi.getProfile();
-    setUser(profileResponse.data.data);
   };
 
   return (
