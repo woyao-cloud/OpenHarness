@@ -24,7 +24,7 @@ const UserDetail: React.FC = () => {
   const fetchUser = async (userId: number) => {
     setLoading(true);
     try {
-      const response = await userApi.getUser(userId);
+      const response = await userApi.getById(userId);
       const user = response.data.data;
       form.setFieldsValue(user);
     } finally {
@@ -36,10 +36,10 @@ const UserDetail: React.FC = () => {
     setSaving(true);
     try {
       if (isEdit && id) {
-        await userApi.updateUser(parseInt(id), values);
+        await userApi.update(parseInt(id), values);
         message.success('更新成功');
       } else {
-        await userApi.createUser(values);
+        await userApi.create(values);
         message.success('创建成功');
       }
       navigate('/users');

@@ -20,7 +20,7 @@ const Profile: React.FC = () => {
     setLoading(true);
     try {
       if (user?.id) {
-        await userApi.updateUser(user.id, values);
+        await userApi.updateProfile(values);
         message.success('更新成功');
         await refreshUser();
       }

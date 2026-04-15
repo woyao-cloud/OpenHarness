@@ -13,8 +13,8 @@ const UserList: React.FC = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await userApi.getUsers();
-      setUsers(response.data.data || []);
+      const response = await userApi.getList({ pageNum: 1, pageSize: 100 });
+      setUsers(response.data.data?.records || []);
     } finally {
       setLoading(false);
     }
@@ -26,7 +26,7 @@ const UserList: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      await userApi.deleteUser(id);
+      await userApi.delete(id);
       message.success('删除成功');
       fetchUsers();
     } catch {
