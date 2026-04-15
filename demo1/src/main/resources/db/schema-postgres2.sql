@@ -155,7 +155,7 @@ ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO sys_user (username, password, nickname, email, role, status) VALUES 
 ('admin9', '$2a$10$enk/6WkSsHogyopFk/Gazu9EaGlJlvIMA.yT6HKSWIKPN1wd9atZm', '管理员', 'admin9@example.com', 'ADMIN', 1)
-cONFLICT (username) DO NOTHING;
+ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO sys_user (username, password, nickname, email, role, status) VALUES 
 ('admin10', '$2a$10$enk/6WkSsHogyopFk/Gazu9EaGlJlvIMA.yT6HKSWIKPN1wd9atZm', '管理员', 'admin10@example.com', 'ADMIN', 1)

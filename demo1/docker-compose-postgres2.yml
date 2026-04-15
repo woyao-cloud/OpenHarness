@@ -4,7 +4,7 @@ services:
   # PostgreSQL 数据库服务
   postgres:
     image: postgres:15
-    container_name: user-admin-postgres2
+    container_name: user-admin-postgres22
     environment:
       POSTGRES_ROOT_PASSWORD: root
       POSTGRES_USER: root
@@ -16,7 +16,7 @@ services:
       - "5432:5432"
     volumes:
       # 挂载 SQL 初始化脚本（首次启动时自动执行）
-      - ./src/main/resources/db/schema-postgres.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./src/main/resources/db/schema-postgres2.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       # 持久化数据
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,14 +26,14 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - user-admin-network
+      - user-admin-network22
 
   # Spring Boot 应用服务
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: user-admin-app
+    container_name: user-admin-app22
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_admin?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
@@ -46,7 +46,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - user-admin-network
+      - user-admin-network22
     restart: unless-stopped
 
 volumes:
@@ -54,5 +54,5 @@ volumes:
     driver: local
 
 networks:
-  user-admin-network:
+  user-admin-network22:
     driver: bridge
