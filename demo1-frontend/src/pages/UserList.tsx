@@ -103,7 +103,7 @@ const UserList: React.FC = () => {
   return (
     <Card title="用户列表">
       <div style={{ marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/users/new')}>
           新增用户
         </Button>
       </div>

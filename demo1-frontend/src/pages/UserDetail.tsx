@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Form, Input, Button, Card, message, Select, Radio } from 'antd';
+import { Form, Input, Button, Card, message, Select, Radio, Space } from 'antd';
 import { useParams, useNavigate } from 'react-router-dom';
 import { userApi } from '@/api';
 import { UserVO } from '@/types';
@@ -117,8 +117,8 @@ const UserDetail: React.FC = () => {
           rules={[{ required: true, message: '请选择状态' }]}
         >
           <Radio.Group>
-            <Radio value="ACTIVE">启用</Radio>
-            <Radio value="INACTIVE">禁用</Radio>
+            <Radio value="1">启用</Radio>
+            <Radio value="0">禁用</Radio>
           </Radio.Group>
         </Form.Item>
 
