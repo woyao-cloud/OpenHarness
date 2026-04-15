@@ -113,6 +113,10 @@ export function useBackendSession(config: FrontendConfig, onExit: (code?: number
 	};
 
 	useEffect(() => {
+		if (!config.backend_command || !Array.isArray(config.backend_command) || config.backend_command.length === 0) {
+			console.error('Error: backend_command is not configured');
+			process.exit(1);
+		}
 		const [command, ...args] = config.backend_command;
 		const useDetachedGroup = process.platform !== 'win32';
 		const child = spawn(command, args, {
