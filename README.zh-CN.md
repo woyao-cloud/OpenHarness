@@ -56,6 +56,8 @@ git clone https://github.com/HKUDS/OpenHarness.git
 cd OpenHarness
 uv sync --extra dev
 uv run oh
+ uv run oh setup
+
 ```
 
 ---
