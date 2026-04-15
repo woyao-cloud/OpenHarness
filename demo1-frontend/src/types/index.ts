@@ -15,6 +15,40 @@ export interface PageResult<T> {
   pages: number;
 }
 
+// 角色信息
+export interface RoleVO {
+  id: number;
+  roleCode: string;
+  roleName: string;
+  description?: string;
+  status: number;
+  createTime: string;
+  updateTime: string;
+}
+
+// 角色创建请求
+export interface RoleCreateDTO {
+  roleCode: string;
+  roleName: string;
+  description?: string;
+  status?: number;
+}
+
+// 角色更新请求
+export interface RoleUpdateDTO {
+  roleName: string;
+  description?: string;
+  status?: number;
+}
+
+// 角色查询参数
+export interface RoleQueryParams {
+  current?: number;
+  size?: number;
+  keyword?: string;
+  status?: number;
+}
+
 // 用户信息
 export interface UserVO {
   id: number;
@@ -24,7 +58,7 @@ export interface UserVO {
   phone?: string;
   avatar?: string;
   status: number;
-  role: string;
+  roles: RoleVO[];
   createTime: string;
   updateTime: string;
 }
@@ -61,7 +95,7 @@ export interface UserCreateDTO {
   phone?: string;
   avatar?: string;
   status?: number;
-  role?: string;
+  roleIds?: number[];
 }
 
 // 更新用户请求
@@ -70,6 +104,8 @@ export interface UserUpdateDTO {
   email?: string;
   phone?: string;
   avatar?: string;
+  status?: number;
+  roleIds?: number[];
 }
 
 // 修改密码请求

@@ -9,7 +9,9 @@ import com.example.useradmin.dto.PasswordDTO;
 import com.example.useradmin.dto.UserCreateDTO;
 import com.example.useradmin.dto.UserUpdateDTO;
 import com.example.useradmin.entity.User;
+import com.example.useradmin.entity.UserRole;
 import com.example.useradmin.mapper.UserMapper;
+import com.example.useradmin.mapper.UserRoleMapper;
 import com.example.useradmin.service.UserService;
 import com.example.useradmin.vo.UserVO;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ import org.springframework.util.StringUtils;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     private final UserMapper userMapper;
+    private final UserRoleMapper userRoleMapper;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -65,6 +68,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
         
         userMapper.insert(user);
+        
+        // 保存用户角色关联
+        if (dto.getRoleIds() != null && !dto.getRoleIds().isEmpty()) {
+            for (Long roleId : dto.getRoleIds()) {
+                UserRole userRole = new UserRole();
+                userRole.setUserId(user.getId());
+                userRole.setRoleId(roleId);
+                userRoleMapper.insert(userRole);
+            }
+        }
+        
         return convertToVO(user);
     }
 
@@ -77,6 +91,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         BeanUtils.copyProperties(dto, user);
         updateById(user);
+        
+        // 更新用户角色关联
+        if (dto.getRoleIds() != null) {
+            // 删除原有角色关联
+            userRoleMapper.deleteByUserId(id);
+            // 插入新的角色关联
+            if (!dto.getRoleIds().isEmpty()) {
+                for (Long roleId : dto.getRoleIds()) {
+                    UserRole userRole = new UserRole();
+                    userRole.setUserId(id);
+                    userRole.setRoleId(roleId);
+                    userRoleMapper.insert(userRole);
+                }
+            }
+        }
         
         return convertToVO(user);
     }
@@ -142,6 +171,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private UserVO convertToVO(User user) {
         UserVO vo = new UserVO();
         BeanUtils.copyProperties(user, vo);
+        // 查询用户角色
+        vo.setRoles(userMapper.selectRolesByUserId(user.getId()));
         return vo;
     }
 }

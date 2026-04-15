@@ -5,6 +5,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class UserCreateDTO {
 
@@ -29,5 +31,5 @@ public class UserCreateDTO {
 
     private Integer status = 1;
 
-    private String role = "USER";
+    private List<Long> roleIds;
 }

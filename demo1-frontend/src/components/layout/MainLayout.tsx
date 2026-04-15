@@ -7,6 +7,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   ProfileOutlined,
+  SafetyOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -50,6 +51,12 @@ const MainLayout: React.FC = () => {
       onClick: () => navigate('/users'),
     },
     {
+      key: '/roles',
+      icon: <SafetyOutlined />,
+      label: '角色管理',
+      onClick: () => navigate('/roles'),
+    },
+    {
       key: '/profile',
       icon: <UserOutlined />,
       label: '个人中心',
@@ -57,7 +64,13 @@ const MainLayout: React.FC = () => {
     },
   ];
 
-  const selectedKeys = [location.pathname.startsWith('/users') ? '/users' : location.pathname];
+  const getSelectedKey = () => {
+    if (location.pathname.startsWith('/users')) return '/users';
+    if (location.pathname.startsWith('/roles')) return '/roles';
+    return location.pathname;
+  };
+
+  const selectedKeys = [getSelectedKey()];
 
   return (
     <Layout style={{ minHeight: '100vh' }}>

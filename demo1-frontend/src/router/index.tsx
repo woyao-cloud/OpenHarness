@@ -5,6 +5,8 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import UserList from '@/pages/UserList';
 import UserDetail from '@/pages/UserDetail';
+import RoleList from '@/pages/RoleList';
+import RoleDetail from '@/pages/RoleDetail';
 import Profile from '@/pages/Profile';
 import React from 'react';
 
@@ -23,7 +25,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; adminOnly?: boolean 
     return <Navigate to="/login" replace />;
   }
 
-  if (adminOnly && user?.role !== 'ADMIN') {
+  if (adminOnly && !user?.roles?.some(r => r.roleCode === 'ADMIN')) {
     return <Navigate to="/" replace />;
   }
 
@@ -87,6 +89,22 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute adminOnly>
             <UserDetail />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'roles',
+        element: (
+          <ProtectedRoute adminOnly>
+            <RoleList />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'roles/:id',
+        element: (
+          <ProtectedRoute adminOnly>
+            <RoleDetail />
           </ProtectedRoute>
         ),
       },

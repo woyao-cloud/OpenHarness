@@ -3,6 +3,8 @@ package com.example.useradmin.dto;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class UserUpdateDTO {
 
@@ -15,4 +17,8 @@ public class UserUpdateDTO {
     private String phone;
 
     private String avatar;
+
+    private Integer status;
+
+    private List<Long> roleIds;
 }

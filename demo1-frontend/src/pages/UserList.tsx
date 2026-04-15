@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Space, Popconfirm, message, Card } from 'antd';
+import { Table, Button, Space, Popconfirm, message, Card, Tag } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { userApi } from '@/api';
 import { UserVO } from '@/types';
@@ -13,7 +13,7 @@ const UserList: React.FC = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await userApi.getList({ pageNum: 1, pageSize: 100 });
+      const response = await userApi.getList({ current: 1, size: 100 });
       setUsers(response.data.data?.records || []);
     } finally {
       setLoading(false);
@@ -62,14 +62,23 @@ const UserList: React.FC = () => {
     },
     {
       title: '角色',
-      dataIndex: 'role',
-      key: 'role',
+      dataIndex: 'roles',
+      key: 'roles',
+      render: (roles: { roleName: string; roleCode: string }[]) => (
+        <Space size="small" wrap>
+          {roles?.map((role) => (
+            <Tag key={role.roleCode} color={role.roleCode === 'ADMIN' ? 'red' : 'blue'}>
+              {role.roleName}
+            </Tag>
+          ))}
+        </Space>
+      ),
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
-      render: (status: string) => (status === 'ACTIVE' ? '启用' : '禁用'),
+      render: (status: number) => (status === 1 ? '启用' : '禁用'),
     },
     {
       title: '操作',

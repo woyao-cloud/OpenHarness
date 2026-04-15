@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Form, Input, Button, Card, message, Select, Radio, Space } from 'antd';
 import { useParams, useNavigate } from 'react-router-dom';
-import { userApi } from '@/api';
-import { UserVO } from '@/types';
+import { userApi, roleApi } from '@/api';
+import { UserVO, RoleVO } from '@/types';
 
 const { Option } = Select;
 
@@ -12,34 +12,52 @@ const UserDetail: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [roles, setRoles] = useState<RoleVO[]>([]);
 
   const isEdit = id !== 'new';
 
   useEffect(() => {
+    fetchRoles();
     if (isEdit && id) {
       fetchUser(parseInt(id));
     }
   }, [id]);
+
+  const fetchRoles = async () => {
+    try {
+      const response = await roleApi.getAllActive();
+      setRoles(response.data.data || []);
+    } catch {
+      message.error('获取角色列表失败');
+    }
+  };
 
   const fetchUser = async (userId: number) => {
     setLoading(true);
     try {
       const response = await userApi.getById(userId);
       const user = response.data.data;
-      form.setFieldsValue(user);
+      form.setFieldsValue({
+        ...user,
+        roleIds: user.roles?.map((r: RoleVO) => r.id) || [],
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const onFinish = async (values: Partial<UserVO>) => {
+  const onFinish = async (values: Partial<UserVO> & { roleIds?: number[] }) => {
     setSaving(true);
     try {
+      const submitData = {
+        ...values,
+        status: values.status,
+      };
       if (isEdit && id) {
-        await userApi.update(parseInt(id), values);
+        await userApi.update(parseInt(id), submitData);
         message.success('更新成功');
       } else {
-        await userApi.create(values);
+        await userApi.create(submitData);
         message.success('创建成功');
       }
       navigate('/users');
@@ -102,23 +120,31 @@ const UserDetail: React.FC = () => {
 
         <Form.Item
           label="角色"
-          name="role"
+          name="roleIds"
           rules={[{ required: true, message: '请选择角色' }]}
         >
-          <Select placeholder="请选择角色">
-            <Option value="ADMIN">管理员</Option>
-            <Option value="USER">普通用户</Option>
+          <Select
+            mode="multiple"
+            placeholder="请选择角色"
+            optionFilterProp="children"
+          >
+            {roles.map((role) => (
+              <Option key={role.id} value={role.id}>
+                {role.roleName} ({role.roleCode})
+              </Option>
+            ))}
           </Select>
         </Form.Item>
 
         <Form.Item
           label="状态"
           name="status"
+          initialValue={1}
           rules={[{ required: true, message: '请选择状态' }]}
         >
           <Radio.Group>
-            <Radio value="1">启用</Radio>
-            <Radio value="0">禁用</Radio>
+            <Radio value={1}>启用</Radio>
+            <Radio value={0}>禁用</Radio>
           </Radio.Group>
         </Form.Item>
 
