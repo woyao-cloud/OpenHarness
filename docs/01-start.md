@@ -4,19 +4,11 @@
 
   Read 3 files (ctrl+o to expand)
 
-● 好, __main__.py 极简单 — 直接调 cli.app()。现在读 cli.py, 这是项目最大文件 (1420 行)。我先分段读, 找入口函数。
+好, __main__.py 极简单 — 直接调 cli.app()。现在读 cli.py, 这是项目最大文件 (1420 行)。我先分段读, 找入口函数。
 
-  Searched for 1 pattern, read 1 file, called plugin:oh-my-claudecode:t (ctrl+o to expand)
-
-● 现在读取 ui/app.py — 这是 main() 实际调用的目标, 看 run_repl 和 run_print_mode 怎么组装核心对象。
-
-  Read 1 file (ctrl+o to expand)
-
-● 关键 — build_runtime 是组装核心对象的地方。读 ui/runtime.py:
-
-  Read 1 file (ctrl+o to expand)
-
-● 好了, Phase 1 的关键文件全部读完。现在来总结:
+现在读取 ui/app.py — 这是 main() 实际调用的目标, 看 run_repl 和 run_print_mode 怎么组装核心对象。
+关键 — build_runtime 是组装核心对象的地方。读 ui/runtime.py:
+好了, Phase 1 的关键文件全部读完。现在来总结:
 
   ---
   Phase 1 总结: 入口与启动流程
