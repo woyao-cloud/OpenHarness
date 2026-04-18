@@ -32,6 +32,7 @@ from openharness.mcp.config import load_mcp_server_configs
 from openharness.permissions import PermissionChecker
 from openharness.plugins import load_plugins
 from openharness.prompts import build_runtime_system_prompt
+from openharness.services.prompt_logger import log_simple
 from openharness.state import AppState, AppStateStore
 from openharness.services.session_backend import DEFAULT_SESSION_BACKEND, SessionBackend
 from openharness.tools import ToolRegistry, create_default_tool_registry
@@ -198,6 +199,7 @@ async def build_runtime(
         "active_profile": active_profile,
         "permission_mode": permission_mode,
     }
+    log_simple("Building runtime...logging settings overrides:\n" + json.dumps(settings_overrides, indent=2) )
     settings = load_settings().merge_cli_overrides(**settings_overrides)
     cwd = str(Path(cwd).expanduser().resolve()) if cwd else str(Path.cwd())
     normalized_skill_dirs = tuple(str(Path(path).expanduser().resolve()) for path in (extra_skill_dirs or ()))
@@ -246,6 +248,10 @@ async def build_runtime(
             default_model=settings.model,
         ),
     )
+    log_simple("hook_executor initialized with context:\n" + json.dumps({
+        "cwd": str(Path(cwd).resolve()),
+    }, indent=2))
+
     engine_max_turns = settings.max_turns if (enforce_max_turns or max_turns is not None) else None
     system_prompt_text = build_runtime_system_prompt(
         settings,
@@ -254,10 +260,11 @@ async def build_runtime(
         extra_skill_dirs=normalized_skill_dirs,
         extra_plugin_roots=normalized_plugin_roots,
     )
+    
     from uuid import uuid4
 
     session_id = uuid4().hex[:12]
-
+    log_simple("Initial system prompt- "+session_id+":\n" + system_prompt_text)
     restored_metadata = {
         "permission_mode": settings.permission.mode.value,
         "read_file_state": [],
@@ -303,6 +310,7 @@ async def build_runtime(
             "session_id": session_id,
             **restored_metadata,
         },
+        verbose=settings.verbose,
     )
     # Restore messages from a saved session if provided
     if restore_messages:

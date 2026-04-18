@@ -94,6 +94,11 @@ def get_feedback_log_path() -> Path:
     return get_feedback_dir() / "feedback.log"
 
 
+def get_prompt_debug_log_dir() -> Path:
+    """Return the prompt debug log directory (same as logs dir)."""
+    return get_logs_dir()
+
+
 def get_cron_registry_path() -> Path:
     """Return the cron registry file path."""
     return get_data_dir() / "cron_jobs.json"

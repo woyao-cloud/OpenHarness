@@ -8,6 +8,7 @@ import sys
 
 from openharness.api.client import SupportsStreamingMessages
 from openharness.engine.stream_events import StreamEvent
+from openharness.services.prompt_logger import log_simple
 from openharness.ui.backend_host import run_backend_host
 from openharness.ui.react_launcher import launch_react_tui
 from openharness.ui.runtime import build_runtime, close_runtime, handle_line, start_runtime
@@ -101,7 +102,7 @@ async def run_task_worker(
     agent processes. It intentionally avoids the React TUI / Ink path so it
     can run without a controlling TTY.
     """
-
+    log_simple("Starting run_task_worker...")
     async def _noop_permission(_tool_name: str, _reason: str) -> bool:
         return True
 
@@ -197,7 +198,7 @@ async def run_print_mode(
 
     async def _noop_ask(question: str) -> str:
         return ""
-
+    log_simple("Starting build_runtime...")
     bundle = await build_runtime(
         prompt=prompt,
         cwd=cwd,
@@ -212,6 +213,7 @@ async def run_print_mode(
         permission_prompt=_noop_permission,
         ask_user_prompt=_noop_ask,
     )
+    log_simple("End build_runtime...")
     await start_runtime(bundle)
 
     collected_text = ""

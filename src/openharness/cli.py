@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from openharness.services.prompt_logger import log_simple
 import typer
 
 __version__ = "0.1.6"
@@ -1292,6 +1293,12 @@ def main(
         lvl = getattr(logging, os.environ["OPENHARNESS_LOG_LEVEL"].upper(), logging.WARNING)
         logging.basicConfig(level=lvl, format="%(asctime)s [%(name)s] %(levelname)s %(message)s", stream=sys.stderr)
 
+    # Apply --verbose flag as env override so it flows through all code paths
+    # (including the React TUI subprocess). This is picked up by
+    # _apply_env_overrides() in settings.py.
+    if verbose:
+        os.environ["OPENHARNESS_VERBOSE"] = "1"
+
     if dangerously_skip_permissions:
         permission_mode = "full_auto"
 
@@ -1389,6 +1396,7 @@ def main(
         return
 
     if task_worker:
+        log_simple("Starting OpenHarness task worker...")
         asyncio.run(
             run_task_worker(
                 cwd=cwd,

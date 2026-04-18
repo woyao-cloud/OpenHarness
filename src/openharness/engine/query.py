@@ -30,6 +30,7 @@ from openharness.engine.stream_events import (
 )
 from openharness.hooks import HookEvent, HookExecutor
 from openharness.permissions.checker import PermissionChecker
+from openharness.services.prompt_logger import log_prompt_request, log_response_complete, log_response_event
 from openharness.tools.base import ToolExecutionContext
 from openharness.tools.base import ToolRegistry
 
@@ -93,6 +94,7 @@ class QueryContext:
     max_turns: int | None = 200
     hook_executor: HookExecutor | None = None
     tool_metadata: dict[str, object] | None = None
+    verbose: bool = False
 
 
 def _append_capped_unique(bucket: list[Any], value: Any, *, limit: int) -> None:
@@ -466,6 +468,17 @@ async def run_query(
         final_message: ConversationMessage | None = None
         usage = UsageSnapshot()
 
+        # Log the prompt request before sending to the API.
+        request_id = log_prompt_request(
+            step_remark=f"Turn run_query()-{turn_count}",
+            model=context.model,
+            max_tokens=context.max_tokens,
+            system_prompt=context.system_prompt,
+            messages=messages,
+            tool_registry=context.tool_registry,
+            verbose=context.verbose,
+        )
+
         try:
             async for event in context.api_client.stream_message(
                 ApiMessageRequest(
@@ -477,6 +490,7 @@ async def run_query(
                 )
             ):
                 if isinstance(event, ApiTextDeltaEvent):
+                    log_response_event(delta_text=event.text, request_id=request_id, verbose=context.verbose)
                     yield AssistantTextDelta(text=event.text), None
                     continue
                 if isinstance(event, ApiRetryEvent):
@@ -491,6 +505,14 @@ async def run_query(
                 if isinstance(event, ApiMessageCompleteEvent):
                     final_message = event.message
                     usage = event.usage
+                    log_response_complete(
+                        message=final_message,
+                        usage=usage,
+                        request_id=request_id,
+                        model=context.model,
+                        stop_reason=event.stop_reason,
+                        verbose=context.verbose,
+                    )
         except Exception as exc:
             error_msg = str(exc)
             if not reactive_compact_attempted and _is_prompt_too_long_error(exc):

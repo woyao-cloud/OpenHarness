@@ -788,6 +788,10 @@ def _apply_env_overrides(settings: Settings) -> Settings:
     if provider:
         updates["provider"] = provider
 
+    verbose_env = os.environ.get("OPENHARNESS_VERBOSE")
+    if verbose_env is not None:
+        updates["verbose"] = _parse_bool_env(verbose_env)
+
     sandbox_enabled = os.environ.get("OPENHARNESS_SANDBOX_ENABLED")
     sandbox_fail = os.environ.get("OPENHARNESS_SANDBOX_FAIL_IF_UNAVAILABLE")
     sandbox_backend = os.environ.get("OPENHARNESS_SANDBOX_BACKEND")
