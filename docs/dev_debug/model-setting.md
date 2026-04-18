@@ -50,15 +50,12 @@ uv run oh --api-format openai --base-url http://localhost:11434/v1 --api-key oll
   oh --dangerously-skip-permissions
 
   方式 2：运行中切换（交互模式）
-
   在 REPL 中输入斜杠命令：
 
   /permissions full_auto
 
   或：
-
   /permissions set full_auto
 
   方式 3：配置文件持久化
-
   编辑 ~/.openharness/settings.json：
