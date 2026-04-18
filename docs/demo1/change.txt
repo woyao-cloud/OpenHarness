@@ -1,0 +1,156 @@
+ 📋 Java Spring Boot → Python FastAPI 迁移规划
+
+   一、现有 Java 项目分析
+
+    ┌─────────┬───────────────────────┬──────────────┐
+    │ 层次    │ 技术栈                │ 说明         │
+    ├─────────┼───────────────────────┼──────────────┤
+    │ 框架    │ Spring Boot 3.x       │ 主框架       │
+    │ ORM     │ MyBatis-Plus          │ 数据库操作   │
+    │ 安全    │ Spring Security + JWT │ 认证授权     │
+    │ 数据库  │ PostgreSQL / MySQL    │ 双数据库支持 │
+    │ API文档 │ Swagger (OpenAPI 3)   │ 接口文档     │
+    └─────────┴───────────────────────┴──────────────┘
+
+   二、数据库表（3张表）
+
+    ┌───────────────┬──────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+    │ 表名          │ 说明         │ 主要字段                                                                                                │
+    ├───────────────┼──────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+    │ sys_user      │ 用户表       │ id, username, password, nickname, email, phone, avatar, status, role, create_time, update_time, deleted │
+    │ sys_role      │ 角色表       │ id, role_code, role_name, description, status, create_time, update_time, deleted                        │
+    │ sys_user_role │ 用户角色关联 │ id, user_id, role_id                                                                                    │
+    └───────────────┴──────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+   三、API接口一览
+
+    ┌──────┬────────────────────────┬────────┬──────────────┬───────┐
+    │ 模块 │ 路径                   │ 方法   │ 说明         │ 权限  │
+    ├──────┼────────────────────────┼────────┼──────────────┼───────┤
+    │ Auth │ /api/auth/login        │ POST   │ 登录         │ 公开  │
+    │      │ /api/auth/register     │ POST   │ 注册         │ 公开  │
+    │      │ /api/auth/refresh      │ POST   │ 刷新Token    │ 公开  │
+    │      │ /api/auth/logout       │ POST   │ 登出         │ 认证  │
+    │ User │ /api/users             │ GET    │ 分页查询     │ ADMIN │
+    │      │ /api/users/{id}        │ GET    │ 用户详情     │ ADMIN │
+    │      │ /api/users             │ POST   │ 创建用户     │ ADMIN │
+    │      │ /api/users/{id}        │ PUT    │ 更新用户     │ ADMIN │
+    │      │ /api/users/{id}        │ DELETE │ 删除用户     │ ADMIN │
+    │      │ /api/users/{id}/status │ PUT    │ 修改状态     │ ADMIN │
+    │      │ /api/users/profile     │ GET    │ 当前用户     │ 认证  │
+    │      │ /api/users/profile     │ PUT    │ 更新个人信息 │ 认证  │
+    │      │ /api/users/password    │ PUT    │ 修改密码     │ 认证  │
+    │ Role │ /api/roles             │ GET    │ 角色分页     │ ADMIN │
+    │      │ /api/roles/{id}        │ GET    │ 角色详情     │ ADMIN │
+    │      │ /api/roles             │ POST   │ 创建角色     │ ADMIN │
+    │      │ /api/roles/{id}        │ PUT    │ 更新角色     │ ADMIN │
+    │      │ /api/roles/{id}        │ DELETE │ 删除角色     │ ADMIN │
+    │      │ /api/roles/{id}/status │ PUT    │ 修改状态     │ ADMIN │
+    │      │ /api/roles/all         │ GET    │ 所有有效角色 │ ADMIN │
+    └──────┴────────────────────────┴────────┴──────────────┴───────┘
+
+   四、Python FastAPI 项目结构规划
+
+     ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+     │ demo1-python/                                                                                                                                                                                                           │
+     │ ├── app/                                                                                                                                                                                                                │
+     │ │   ├── __init__.py                                                                                                                                                                                                     │
+     │ │   ├── main.py                    # FastAPI应用入口                                                                                                                                                                    │
+     │ │   ├── config.py                   # 配置管理 (替代application.yml)                                                                                                                                                    │
+     │ │   ├── database.py                 # 数据库连接 & 会话管理                                                                                                                                                             │
+     │ │   ├── dependencies.py             # 依赖注入 (当前用户、权限检查)                                                                                                                                                     │
+     │ │   ├── models/                     # SQLAlchemy ORM 模型 (替代entity)                                                                                                                                                  │
+     │ │   │   ├── __init__.py                                                                                                                                                                                                 │
+     │ │   │   ├── user.py                                                                                                                                                                                                     │
+     │ │   │   ├── role.py                                                                                                                                                                                                     │
+     │ │   │   └── user_role.py                                                                                                                                                                                                │
+     │ │   ├── schemas/                    # Pydantic 模型 (替代dto+vo)                                                                                                                                                        │
+     │ │   │   ├── __init__.py                                                                                                                                                                                                 │
+     │ │   │   ├── auth.py                 # LoginDTO, RegisterDTO, LoginVO                                                                                                                                                    │
+     │ │   │   ├── user.py                 # UserCreateDTO, UserUpdateDTO, PasswordDTO, UserVO                                                                                                                                 │
+     │ │   │   └── role.py                 # RoleCreateDTO, RoleUpdateDTO, RoleQueryDTO, RoleVO                                                                                                                                │
+     │ │   ├── routers/                    # 路由 (替代controller)                                                                                                                                                             │
+     │ │   │   ├── __init__.py                                                                                                                                                                                                 │
+     │ │   │   ├── auth.py                                                                                                                                                                                                     │
+     │ │   │   ├── user.py                                                                                                                                                                                                     │
+     │ │   │   └── role.py                                                                                                                                                                                                     │
+     │ │   ├── services/                   # 业务逻辑 (替代service/impl)                                                                                                                                                       │
+     │ │   │   ├── __init__.py                                                                                                                                                                                                 │
+     │ │   │   ├── auth_service.py                                                                                                                                                                                             │
+     │ │   │   ├── user_service.py                                                                                                                                                                                             │
+     │ │   │   └── role_service.py                                                                                                                                                                                             │
+     │ │   ├── security/                   # JWT & 认证 (替代security包)                                                                                                                                                       │
+     │ │   │   ├── __init__.py                                                                                                                                                                                                 │
+     │ │   │   ├── jwt.py                  # JwtTokenProvider                                                                                                                                                                  │
+     │ │   │   └── password.py             # BCrypt密码编码                                                                                                                                                                    │
+     │ │   ├── common/                     # 通用组件                                                                                                                                                                          │
+     │ │   │   ├── __init__.py                                                                                                                                                                                                 │
+     │ │   │   ├── result.py               # Result统一响应                                                                                                                                                                    │
+     │ │   │   └── exceptions.py           # BusinessException & 全局异常处理                                                                                                                                                  │
+     │ │   └── crud/                       # 数据访问层 (替代mapper)                                                                                                                                                           │
+     │ │       ├── __init__.py                                                                                                                                                                                                 │
+     │ │       ├── user.py                                                                                                                                                                                                     │
+     │ │       ├── role.py                                                                                                                                                                                                     │
+     │ │       └── user_role.py                                                                                                                                                                                                │
+     │ ├── alembic/                        # 数据库迁移 (可选)                                                                                                                                                                 │
+     │ ├── alembic.ini                                                                                                                                                                                                         │
+     │ ├── requirements.txt                                                                                                                                                                                                    │
+     │ ├── Dockerfile                                                                                                                                                                                                          │
+     │ ├── docker-compose.yml                                                                                                                                                                                                  │
+     │ └── README.md                                                                                                                                                                                                           │
+     ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+   五、技术映射对照表
+
+    ┌───────────────────────────────────┬────────────────────────────────┬──────────────┐
+    │ Java 技术                         │ Python 等价替代                │ 说明         │
+    ├───────────────────────────────────┼────────────────────────────────┼──────────────┤
+    │ Spring Boot                       │ FastAPI                        │ Web框架      │
+    │ MyBatis-Plus                      │ SQLAlchemy                     │ ORM          │
+    │ Spring Security                   │ FastAPI Depends + 自定义中间件 │ 认证授权     │
+    │ jjwt (io.jsonwebtoken)            │ PyJWT                          │ JWT生成/验证 │
+    │ BCryptPasswordEncoder             │ passlib[bcrypt]                │ 密码加密     │
+    │ @Valid / Jakarta Validation       │ Pydantic BaseModel             │ 数据校验     │
+    │ @PreAuthorize("hasRole('ADMIN')") │ 自定义Depends依赖              │ 角色权限     │
+    │ Result<T> 统一响应                │ 自定义JSONResponse             │ 统一返回格式 │
+    │ GlobalExceptionHandler            │ @app.exception_handler         │ 全局异常处理 │
+    │ PageResult 分页                   │ 自定义分页工具                 │ 分页封装     │
+    │ Swagger OpenAPI 3                 │ FastAPI内置                    │ 自动生成文档 │
+    │ application.yml                   │ .env + pydantic-settings       │ 配置管理     │
+    └───────────────────────────────────┴────────────────────────────────┴──────────────┘
+
+   六、实施步骤（建议顺序）
+     1. 基础设施搭建 — 项目骨架、配置、数据库连接
+     2. ORM模型 — SQLAlchemy模型（对应3张表）
+     3. CRUD层 — 数据库查询操作
+     4. Pydantic Schemas — 请求/响应模型
+     5. 通用组件 — Result响应、异常处理、分页
+     6. 安全模块 — JWT生成验证、密码哈希、权限依赖
+     7. Auth路由+服务 — 登录/注册/刷新/登出
+     8. User路由+服务 — 用户CRUD + profile
+     9. Role路由+服务 — 角色CRUD
+     10. Docker化 — Dockerfile + docker-compose.yml
+     11. 数据库初始化脚本 — 复用现有PostgreSQL schema
+
+   七、关键实现要点
+     • 统一响应格式: 保留 {code, message, data, timestamp} 格式
+     • JWT双Token机制: access_token + refresh_token，与Java版完全对等
+     • 权限控制: 通过 Depends(get_current_user) 和 Depends(require_admin) 实现
+     • 逻辑删除: SQLAlchemy事件或全局查询过滤器处理 deleted=0
+     • 密码: 使用bcrypt，与Java的BCryptPasswordEncoder兼容
+     • 分页: 统一分页参数 current / size，返回 {total, pages, current, size, records}
+
+   八、依赖清单 (requirements.txt)
+
+     ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+     │ fastapi==0.115.x                                                                                                                                                                                                        │
+     │ uvicorn[standard]                                                                                                                                                                                                       │
+     │ sqlalchemy[asyncio]==2.0.x                                                                                                                                                                                              │
+     │ asyncpg  (PostgreSQL) / aiomysql (MySQL)                                                                                                                                                                                │
+     │ pydantic-settings                                                                                                                                                                                                       │
+     │ python-jose[cryptography]  (或 PyJWT)                                                                                                                                                                                   │
+     │ passlib[bcrypt]                                                                                                                                                                                                         │
+     │ python-multipart                                                                                                                                                                                                        │
+     │ alembic  (数据库迁移)                                                                                                                                                                                                   │
+     ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+

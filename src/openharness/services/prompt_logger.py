@@ -468,6 +468,50 @@ def log_simple(content: str) -> None:
     """Log a simple message to the prompt debug file (for ad-hoc notes)."""
     _write_to_debug_file(content)
 
+
+def log_content_block(content_block) -> None:
+    """Log a ContentBlock to the prompt debug file.
+
+    Parameters
+    ----------
+    content_block : ContentBlock
+        The content block to log.
+    """
+    from openharness.engine.messages import TextBlock, ImageBlock, ToolUseBlock, ToolResultBlock
+    
+    lines = ["=" * 80]
+    
+    if isinstance(content_block, TextBlock):
+        lines.append(f"ContentBlock Type: TextBlock")
+        lines.append("=" * 80)
+        lines.append(f"Text: {content_block.text}")
+    elif isinstance(content_block, ImageBlock):
+        lines.append(f"ContentBlock Type: ImageBlock")
+        lines.append("=" * 80)
+        lines.append(f"Media Type: {content_block.media_type}")
+        lines.append(f"Source Path: {content_block.source_path}")
+        lines.append(f"Data Length: {len(content_block.data)} characters")
+    elif isinstance(content_block, ToolUseBlock):
+        lines.append(f"ContentBlock Type: ToolUseBlock")
+        lines.append("=" * 80)
+        lines.append(f"ID: {content_block.id}")
+        lines.append(f"Name: {content_block.name}")
+        lines.append(f"Input: {content_block.input}")
+    elif isinstance(content_block, ToolResultBlock):
+        lines.append(f"ContentBlock Type: ToolResultBlock")
+        lines.append("=" * 80)
+        lines.append(f"Tool Use ID: {content_block.tool_use_id}")
+        lines.append(f"Content: {content_block.content}")
+        lines.append(f"Is Error: {content_block.is_error}")
+    else:
+        lines.append(f"ContentBlock Type: Unknown")
+        lines.append("=" * 80)
+        lines.append(f"Content: {content_block}")
+    
+    content = "\n".join(lines)
+    _write_to_debug_file(content)
+
+
 def _write_to_debug_file(content: str) -> None:
     """Append formatted content to the session prompt debug log file."""
     try:
