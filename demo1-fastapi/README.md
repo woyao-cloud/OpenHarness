@@ -29,6 +29,8 @@
 ### 方式一：Docker Compose（推荐）
 
 ```bash
+# start
+docker-compose up -d postgres
 # 构建并启动
 docker-compose up -d --build
 

@@ -1,4 +1,5 @@
 from sqlalchemy import BigInteger, Column, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import mapped_column, Mapped
 
 from app.database import Base
 
