@@ -325,7 +325,7 @@ class OpenAICompatibleClient:
             # Stream text content to user
             if delta.content:
                 collected_content += delta.content
-                log_simple(f"Received text delta: {delta.content}")
+                log_simple(f"(StreamEvent)Received text delta: {delta.content}")
                 yield ApiTextDeltaEvent(text=delta.content)
 
             # Accumulate tool calls

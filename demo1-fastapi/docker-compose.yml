@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15
+    container_name: user-admin-postgres
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: user_admin
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/schema-postgres.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d user_admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - user-admin-network
+
+  # FastAPI 应用
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: user-admin-fastapi
+    environment:
+      DATABASE_URL: postgresql://root:root@postgres:5432/user_admin
+      JWT_SECRET: your-256-bit-secret-key-for-jwt-signing-must-be-at-least-32-characters
+      JWT_EXPIRATION: "86400"
+      JWT_REFRESH_EXPIRATION: "604800"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - user-admin-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  user-admin-network:
+    driver: bridge
