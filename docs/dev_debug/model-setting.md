@@ -1,4 +1,4 @@
-uv run oh --api-format openai --base-url http://localhost:11434/v1 --api-key ollama --model glm-5.1:cloud
+uv run oh --api-format openai --base-url http://localhost:11434 --api-key ollama --model glm-5.1:cloud
 
  好的，选方案 A，最简单。不需要改代码，直接配置环境变量即可。
 
@@ -7,7 +7,7 @@ uv run oh --api-format openai --base-url http://localhost:11434/v1 --api-key oll
   启动前设置环境变量
 
   export OPENHARNESS_API_FORMAT=openai
-  export OPENHARNESS_BASE_URL=http://localhost:11434/v1
+  export OPENHARNESS_BASE_URL=http://localhost:11434
   export OPENAI_API_KEY=ollama
   export OPENHARNESS_MODEL=glm-5.1:cloud
 
@@ -15,7 +15,7 @@ uv run oh --api-format openai --base-url http://localhost:11434/v1 --api-key oll
   oh
 
   或单次运行时通过 CLI 参数指定：
-  oh --api-format openai --base-url http://localhost:11434/v1 --api-key ollama --model glm-5.1:cloud
+  oh --api-format openai --base-url http://localhost:11434 --api-key ollama --model glm-5.1:cloud
 
   说明
 
@@ -24,7 +24,7 @@ uv run oh --api-format openai --base-url http://localhost:11434/v1 --api-key oll
   ├────────────┼───────────────────────────┼─────────────────────────────────────────────────────────────┤
   │ api_format │ openai                    │ Ollama 提供 OpenAI 兼容接口，使用 OpenAICompatibleClient    │
   ├────────────┼───────────────────────────┼─────────────────────────────────────────────────────────────┤
-  │ base_url   │ http://localhost:11434/v1 │ Ollama 默认的 OpenAI 兼容端点                               │
+  │ base_url   │ http://localhost:11434 │ Ollama 默认的 OpenAI 兼容端点                               │
   ├────────────┼───────────────────────────┼─────────────────────────────────────────────────────────────┤
   │ api_key    │ ollama（任意占位值）      │ Ollama 不验证认证，但 OpenAICompatibleClient 构造需要非空值 │
   ├────────────┼───────────────────────────┼─────────────────────────────────────────────────────────────┤

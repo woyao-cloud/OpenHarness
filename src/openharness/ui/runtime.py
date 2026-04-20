@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,11 +33,13 @@ from openharness.mcp.config import load_mcp_server_configs
 from openharness.permissions import PermissionChecker
 from openharness.plugins import load_plugins
 from openharness.prompts import build_runtime_system_prompt
-from openharness.services.prompt_logger import log_simple
 from openharness.state import AppState, AppStateStore
+from openharness.services.log import log_simple
 from openharness.services.session_backend import DEFAULT_SESSION_BACKEND, SessionBackend
 from openharness.tools import ToolRegistry, create_default_tool_registry
 from openharness.keybindings import load_keybindings
+
+_log = logging.getLogger(__name__)
 
 PermissionPrompt = Callable[[str, str], Awaitable[bool]]
 AskUserPrompt = Callable[[str], Awaitable[str]]
@@ -199,7 +202,7 @@ async def build_runtime(
         "active_profile": active_profile,
         "permission_mode": permission_mode,
     }
-    log_simple("Building runtime...logging settings overrides:\n" + json.dumps(settings_overrides, indent=2) )
+    log_simple(step_remark="Build runtime", message="Building runtime...")
     settings = load_settings().merge_cli_overrides(**settings_overrides)
     cwd = str(Path(cwd).expanduser().resolve()) if cwd else str(Path.cwd())
     normalized_skill_dirs = tuple(str(Path(path).expanduser().resolve()) for path in (extra_skill_dirs or ()))
@@ -248,7 +251,7 @@ async def build_runtime(
             default_model=settings.model,
         ),
     )
-    log_simple("hook_executor initialized with context:\n" + json.dumps({
+    log_simple(step_remark="Build runtime", message="hook_executor initialized with context:\n" + json.dumps({
         "cwd": str(Path(cwd).resolve()),
     }, indent=2))
 
@@ -264,7 +267,7 @@ async def build_runtime(
     from uuid import uuid4
 
     session_id = uuid4().hex[:12]
-    log_simple("Initial system prompt- "+session_id+":\n" + system_prompt_text)
+    log_simple(step_remark="Build runtime", message="Initial system prompt- " + session_id + ":\n" + system_prompt_text)
     restored_metadata = {
         "permission_mode": settings.permission.mode.value,
         "read_file_state": [],

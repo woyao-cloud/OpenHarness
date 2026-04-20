@@ -32,9 +32,8 @@ from openharness.engine.messages import (
     ToolResultBlock,
     ToolUseBlock,
 )
-from openharness.services.prompt_logger import log_content_block, log_simple
 
-log = logging.getLogger(__name__)
+from openharness.services.log import log_simple   
 
 MAX_RETRIES = 3
 BASE_DELAY = 1.0
@@ -323,9 +322,9 @@ class OpenAICompatibleClient:
                 collected_reasoning += reasoning_piece
 
             # Stream text content to user
+            log_simple(step_remark="OpenAI API", message=delta.content)
             if delta.content:
                 collected_content += delta.content
-                log_simple(f"(StreamEvent)Received text delta: {delta.content}")
                 yield ApiTextDeltaEvent(text=delta.content)
 
             # Accumulate tool calls
@@ -373,7 +372,6 @@ class OpenAICompatibleClient:
                 name=tc["name"],
                 input=args,
             ))
-        log_content_block(content)
         final_message = ConversationMessage(role="assistant", content=content)
 
         # Stash reasoning for thinking models so _convert_assistant_message

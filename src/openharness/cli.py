@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 from pathlib import Path
 from typing import Optional
 
-from openharness.services.prompt_logger import log_simple
 import typer
-
+from openharness.services.log import log_simple
 __version__ = "0.1.6"
 
 
@@ -1396,7 +1396,7 @@ def main(
         return
 
     if task_worker:
-        log_simple("Starting OpenHarness task worker...")
+        log_simple(step_remark="Task worker", message="Task worker started")
         asyncio.run(
             run_task_worker(
                 cwd=cwd,

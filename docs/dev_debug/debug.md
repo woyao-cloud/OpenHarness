@@ -30,7 +30,7 @@ INTEGRATION_OK
 
 
 
-● 实现完成。以下是改动的总结：
+● 实现完成。以下是改动的总结：·
 
   src/openharness/services/prompt_logger.py:
   - 新增 ResponseLogEntry 和 ResponseCompleteLogEntry 两个数据类

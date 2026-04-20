@@ -30,7 +30,15 @@ from openharness.engine.stream_events import (
 )
 from openharness.hooks import HookEvent, HookExecutor
 from openharness.permissions.checker import PermissionChecker
-from openharness.services.prompt_logger import log_prompt_request, log_response_complete, log_response_event
+from openharness.services.log import (
+    log_compact_event,
+    log_prompt_request,
+    log_response_complete,
+    log_response_event, 
+    log_simple,
+    log_tool_execution,
+    set_verbose,
+)
 from openharness.tools.base import ToolExecutionContext
 from openharness.tools.base import ToolRegistry
 
@@ -454,11 +462,20 @@ async def run_query(
         while not progress_queue.empty():
             yield progress_queue.get_nowait(), None
         last_compaction_result = await task
+        log_compact_event(
+            request_id=0,
+            trigger=trigger,
+            phase="compact_end",
+            before_tokens=getattr(compact_state, 'before_tokens', None),
+            after_tokens=getattr(compact_state, 'after_tokens', None),
+            summary=str(last_compaction_result[0])[:500] if last_compaction_result[1] else None,
+        )
         return
 
     turn_count = 0
     while context.max_turns is None or turn_count < context.max_turns:
         turn_count += 1
+        set_verbose(context.verbose)
         # --- auto-compact check before calling the model ---------------
         async for event, usage in _stream_compaction(trigger="auto"):
             yield event, usage
@@ -562,7 +579,17 @@ async def run_query(
             # Single tool: sequential (stream events immediately)
             tc = tool_calls[0]
             yield ToolExecutionStarted(tool_name=tc.name, tool_input=tc.input), None
+            t0 = time.monotonic()
             result = await _execute_tool_call(context, tc.name, tc.id, tc.input)
+            elapsed = time.monotonic() - t0
+            log_tool_execution(
+                request_id=request_id,
+                tool_name=tc.name,
+                tool_input=tc.input,
+                tool_output=result.content,
+                is_error=result.is_error,
+                duration_seconds=elapsed,
+            )
             yield ToolExecutionCompleted(
                 tool_name=tc.name,
                 output=result.content,
@@ -581,9 +608,11 @@ async def run_query(
             # its siblings as cancelled coroutines and leave the conversation with
             # un-replied tool_use blocks (Anthropic's API rejects the next request
             # on the session if any tool_use is missing a matching tool_result).
+            t0 = time.monotonic()
             raw_results = await asyncio.gather(
                 *[_run(tc) for tc in tool_calls], return_exceptions=True
             )
+            gather_elapsed = time.monotonic() - t0
             tool_results = []
             for tc, result in zip(tool_calls, raw_results):
                 if isinstance(result, BaseException):
@@ -601,6 +630,14 @@ async def run_query(
                 tool_results.append(result)
 
             for tc, result in zip(tool_calls, tool_results):
+                log_tool_execution(
+                    request_id=request_id,
+                    tool_name=tc.name,
+                    tool_input=tc.input,
+                    tool_output=result.content,
+                    is_error=result.is_error,
+                    duration_seconds=gather_elapsed,
+                )
                 yield ToolExecutionCompleted(
                     tool_name=tc.name,
                     output=result.content,
