@@ -531,6 +531,7 @@ async def run_query(
                         verbose=context.verbose,
                     )
         except Exception as exc:
+            log.exception("API request failed: %s", exc)
             error_msg = str(exc)
             if not reactive_compact_attempted and _is_prompt_too_long_error(exc):
                 reactive_compact_attempted = True
