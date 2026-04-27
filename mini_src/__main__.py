@@ -7,7 +7,7 @@ Environment variables:
   OPENHARNESS_MODEL  — Model name (default: claude-sonnet-4-6)
   OPENHARNESS_BASE_URL — Custom API base URL (optional)
   OPENHARNESS_MAX_TOKENS — Max tokens per request (default: 4096)
-  OPENHARNESS_MAX_TURNS — Max agentic turns (default: 20)
+  OPENHARNESS_MAX_TURNS — Max agentic turns (default: 200)
 
 Examples:
   # Anthropic

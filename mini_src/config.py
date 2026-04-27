@@ -130,7 +130,7 @@ def get_max_tokens() -> int:
 
 def get_max_turns() -> int:
     """Return the max agentic turns per prompt."""
-    return int(os.environ.get("OPENHARNESS_MAX_TURNS", "20"))
+    return int(os.environ.get("OPENHARNESS_MAX_TURNS", "200"))
 
 
 def get_data_dir() -> Path:

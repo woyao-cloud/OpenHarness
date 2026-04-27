@@ -62,6 +62,27 @@
     font-weight: 600;
   }
   button:hover { background: #c73652; transform: scale(1.05); }
+  .select-style {
+    background: #0f3460;
+    color: #eee;
+    border: 1px solid #e94560;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    font-weight: 600;
+    outline: none;
+  }
+  .select-style:hover { border-color: #ff6b6b; }
+  .btn-toggle {
+    background: #0f3460;
+    border: 1px solid #533483;
+  }
+  .btn-toggle.active {
+    background: #533483;
+    border-color: #e94560;
+    box-shadow: 0 0 10px rgba(233,69,96,0.3);
+  }
   .hint {
     color: #888;
     margin-top: 10px;
@@ -86,14 +107,21 @@
   <h1>🐍 贪吃蛇</h1>
   <div class="score-board">
     <div>分数: <span id="score">0</span></div>
+    <div>速度: <span id="speedLevel">Lv.1</span></div>
     <div>最高: <span id="highScore">0</span></div>
   </div>
   <canvas id="gameCanvas" width="400" height="400"></canvas>
   <div class="controls">
     <button id="restartBtn">🔄 重新开始</button>
+    <select id="difficultySelect" class="select-style">
+      <option value="easy">🟢 简单</option>
+      <option value="normal" selected>🟡 普通</option>
+      <option value="hard">🔴 困难</option>
+    </select>
+    <button id="wallModeBtn" class="btn-toggle">🧱 穿墙: 关</button>
   </div>
   <div class="hint">
-    <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> 控制方向 &nbsp;|&nbsp; <kbd>Space</kbd> 暂停
+    <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> 控制方向 &nbsp;|&nbsp; <kbd>Space</kbd> 暂停 &nbsp;|&nbsp; 每吃 5 个食物自动加速
   </div>
 </div>
 
@@ -106,7 +134,16 @@ const highScoreEl = document.getElementById('highScore');
 // 游戏配置
 const GRID_SIZE = 20;      // 20x20 网格
 const CELL_SIZE = 20;      // 每个格子 20px
-const TICK_INTERVAL = 550; // 毫秒
+// 难度预设
+const DIFFICULTY_PRESETS = {
+  easy:   { label: '简单', baseInterval: 650, speedEvery: 5, speedInc: 30, minInterval: 250 },
+  normal: { label: '普通', baseInterval: 500, speedEvery: 5, speedInc: 25, minInterval: 180 },
+  hard:   { label: '困难', baseInterval: 350, speedEvery: 4, speedInc: 20, minInterval: 100 },
+};
+let currentDifficulty = 'normal';
+let wallMode = false;
+let speedLevel = 1;
+let currentInterval = DIFFICULTY_PRESETS[currentDifficulty].baseInterval;
 
 // 游戏状态
 let snake = [];
@@ -120,7 +157,34 @@ let paused = false;
 let win = false;
 let gameLoop = null;
 
+const speedLevelEl = document.getElementById('speedLevel');
 highScoreEl.textContent = highScore;
+
+// ─── 音效系统（Web Audio API） ───
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playSound(freq, duration, type = 'square') {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch (_) { /* 静默失败 */ }
+}
+function soundEat() { playSound(587, 0.1); setTimeout(() => playSound(740, 0.1), 60); }
+function soundGameOver() { playSound(300, 0.15, 'sawtooth'); setTimeout(() => playSound(200, 0.25, 'sawtooth'), 120); }
+function soundWin() { for (let i = 0; i < 4; i++) setTimeout(() => playSound(523 + i * 80, 0.15), i * 100); }
+function soundSpeedUp() { playSound(440, 0.08); setTimeout(() => playSound(660, 0.08), 50); setTimeout(() => playSound(880, 0.12), 100); }
 
 // 初始化
 function init() {
@@ -135,6 +199,10 @@ function init() {
   gameOver = false;
   win = false;
   paused = false;
+  speedLevel = 1;
+  const preset = DIFFICULTY_PRESETS[currentDifficulty];
+  currentInterval = preset.baseInterval;
+  speedLevelEl.textContent = `Lv.${speedLevel}`;
   scoreEl.textContent = score;
   spawnFood();
   draw();
