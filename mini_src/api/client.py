@@ -219,6 +219,7 @@ class AnthropicApiClient:
                 collected_tool_calls: dict[int, dict[str, Any]] = {}
                 usage_data: dict[str, int] = {}
                 stop_reason: str | None = None
+                reasoning_content: str | None = None
 
                 async for line in resp.aiter_lines():
                     if not line.startswith("data: "):
@@ -232,6 +233,19 @@ class AnthropicApiClient:
                         continue
 
                     event_type = data.get("type", "")
+
+                    # Capture reasoning_content for DeepSeek thinking mode
+                    # (may appear in content_block_delta, message_start, or as a top-level field)
+                    raw = data
+                    raw_reasoning = (
+                        raw.get("reasoning_content")
+                        or (raw.get("delta") or {}).get("reasoning_content")
+                        or (raw.get("message") or {}).get("reasoning_content")
+                    )
+                    if raw_reasoning and isinstance(raw_reasoning, str):
+                        if reasoning_content is None:
+                            reasoning_content = ""
+                        reasoning_content += raw_reasoning
 
                     if event_type == "content_block_delta":
                         delta = data.get("delta", {})
@@ -283,7 +297,10 @@ class AnthropicApiClient:
                         id=tc["id"], name=tc["name"], input=tc.get("input") or {},
                     ))
 
-                final_message = ConversationMessage(role="assistant", content=content)
+                final_message = ConversationMessage(
+                    role="assistant", content=content,
+                    reasoning_content=reasoning_content,
+                )
 
                 yield ApiMessageCompleteEvent(
                     message=final_message,
@@ -330,6 +347,8 @@ def _convert_messages_to_openai(
             content = "".join(text_parts)
             assistant_msg: dict[str, Any] = {"role": "assistant"}
             assistant_msg["content"] = content if content else None
+            if msg.reasoning_content:
+                assistant_msg["reasoning_content"] = msg.reasoning_content
             if tool_uses:
                 assistant_msg["tool_calls"] = [
                     {
@@ -443,6 +462,7 @@ class OpenAICompatibleClient:
                 collected_tool_calls: dict[int, dict[str, Any]] = {}
                 usage_data: dict[str, int] = {}
                 finish_reason: str | None = None
+                reasoning_content: str | None = None
 
                 async for line in resp.aiter_lines():
                     if not line.startswith("data: "):
@@ -472,6 +492,13 @@ class OpenAICompatibleClient:
                         collected_content += delta["content"]
                         yield ApiTextDeltaEvent(text=delta["content"])
 
+                    # Capture reasoning_content for DeepSeek thinking mode
+                    raw_reasoning = delta.get("reasoning_content")
+                    if raw_reasoning and isinstance(raw_reasoning, str):
+                        if reasoning_content is None:
+                            reasoning_content = ""
+                        reasoning_content += raw_reasoning
+
                     if delta.get("tool_calls"):
                         for tc_delta in delta["tool_calls"]:
                             idx = tc_delta.get("index", 0)
@@ -499,7 +526,10 @@ class OpenAICompatibleClient:
                         args = {}
                     content.append(ToolUseBlock(id=tc["id"], name=tc["name"], input=args))
 
-                final_message = ConversationMessage(role="assistant", content=content)
+                final_message = ConversationMessage(
+                    role="assistant", content=content,
+                    reasoning_content=reasoning_content,
+                )
                 yield ApiMessageCompleteEvent(
                     message=final_message,
                     usage=UsageSnapshot(

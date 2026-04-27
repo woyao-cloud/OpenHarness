@@ -66,6 +66,7 @@ class ConversationMessage(BaseModel):
 
     role: Literal["user", "assistant"]
     content: list[ContentBlock] = Field(default_factory=list)
+    reasoning_content: str | None = None
 
     @field_validator("content", mode="before")
     @classmethod
@@ -99,10 +100,13 @@ class ConversationMessage(BaseModel):
 
     def to_api_param(self) -> dict[str, Any]:
         """Convert the message into Anthropic SDK message params."""
-        return {
+        result: dict[str, Any] = {
             "role": self.role,
             "content": [serialize_content_block(block) for block in self.content],
         }
+        if self.role == "assistant" and self.reasoning_content:
+            result["reasoning_content"] = self.reasoning_content
+        return result
 
     def is_effectively_empty(self) -> bool:
         """Return True when the message carries no useful content."""
