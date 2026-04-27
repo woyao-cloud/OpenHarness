@@ -89,3 +89,38 @@ mini-src/ 全部完成。以下是提取结果：
   - 并发多工具执行：两个工具同时启动，结果正确聚合
   - Token 累计：跨轮次正确累加
   - MaxTurnsExceeded：达到上限时正确抛出
+
+
+  如何调整代码以便使用最新的大模型deepseek-v4-flash
+
+  ● 全部完成。使用 DeepSeek V4 Flash 只需设置环境变量：
+
+  # 方式 1：最简单 —— 自动配置
+  export DEEPSEEK_API_KEY=sk-your-key
+  export OPENHARNESS_MODEL=deepseek-chat
+  python -m mini_src "你好，请列出当前目录的文件"
+
+  # 方式 2：显式指定（兼容所有 OpenAI API 提供商）
+  export OPENAI_API_KEY=sk-your-key
+  export OPENHARNESS_BASE_URL=https://api.deepseek.com/v1
+  export OPENHARNESS_MODEL=deepseek-chat
+  python -m mini_src "你好"
+
+  改动的 3 个文件
+
+  ┌───────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │     文件      │                                                                          改动                                                                          │
+  ├───────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ config.py     │ 新增 PROVIDER_CONFIGS 支持 3 个内置 provider（anthropic/openai/deepseek）；新增 DEEPSEEK_API_KEY 环境变量自动检测；新增 needs_max_completion_tokens()  │
+  │               │ 自动识别需要 max_completion_tokens 参数的模型（如 deepseek-reasoner）                                                                                  │
+  ├───────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ api/client.py │ OpenAICompatibleClient._stream_once() 根据模型名自动选择 max_tokens 或 max_completion_tokens 参数                                                      │
+  ├───────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ __main__.py   │ build_api_client() 识别 deepseek provider 并使用正确的基础 URL；文档添加了 DeepSeek 示例                                                               │
+  └───────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  支持的模型命名
+
+  - deepseek-chat — DeepSeek V3 / 最新对话模型（使用 max_tokens）
+  - deepseek-reasoner — DeepSeek R1 推理模型（自动使用 max_completion_tokens）
+  - deepseek-v4-flash — 直接设置 OPENHARNESS_MODEL=deepseek-v4-flash 即可

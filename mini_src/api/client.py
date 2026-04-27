@@ -23,6 +23,7 @@ from mini_src.api.errors import (
     RequestFailure,
 )
 from mini_src.api.usage import UsageSnapshot
+from mini_src.config import needs_max_completion_tokens
 from mini_src.core.messages import (
     ConversationMessage,
     ContentBlock,
@@ -109,24 +110,38 @@ def _get_retry_delay(attempt: int) -> float:
     return delay + jitter
 
 
+def _ensure_str(value: object) -> str:
+    """Convert API error message to a readable string."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace").strip() or "(empty response)"
+    if value is None:
+        return "(no error message)"
+    return str(value)
+
+
 def _translate_anthropic_error(status_code: int, body: dict[str, Any]) -> OpenHarnessApiError:
     error = body.get("error", {})
-    error_type = error.get("type", "")
-    msg = error.get("message", str(body))
+    error_type = error.get("type", "") if isinstance(error, dict) else ""
+    msg = _ensure_str(error.get("message", str(body) if not isinstance(error, dict) else ""))
+    prefix = f"[HTTP {status_code}] "
     if error_type in {"authentication_error", "permission_error"}:
-        return AuthenticationFailure(msg)
+        return AuthenticationFailure(prefix + msg)
     if status_code == 429 or error_type == "rate_limit_error":
-        return RateLimitFailure(msg)
-    return RequestFailure(msg)
+        return RateLimitFailure(prefix + msg)
+    return RequestFailure(prefix + msg)
 
 
 def _translate_openai_error(status_code: int, body: dict[str, Any]) -> OpenHarnessApiError:
-    msg = body.get("error", {}).get("message", str(body))
+    raw = body.get("error", {})
+    msg = _ensure_str(raw.get("message", str(body)) if isinstance(raw, dict) else str(body))
+    prefix = f"[HTTP {status_code}] "
     if status_code in (401, 403):
-        return AuthenticationFailure(msg)
+        return AuthenticationFailure(prefix + msg)
     if status_code == 429:
-        return RateLimitFailure(msg)
-    return RequestFailure(msg)
+        return RateLimitFailure(prefix + msg)
+    return RequestFailure(prefix + msg)
 
 
 # ── Anthropic client ──────────────────────────────────────────────────
@@ -140,6 +155,10 @@ class AnthropicApiClient:
     def __init__(self, api_key: str, *, base_url: str | None = None) -> None:
         self._api_key = api_key
         self._base_url = (base_url or self.BASE_URL).rstrip("/")
+
+    @property
+    def base_url(self) -> str:
+        return self._base_url
 
     async def stream_message(self, request: ApiMessageRequest) -> AsyncIterator[ApiStreamEvent]:
         last_error: Exception | None = None
@@ -156,8 +175,8 @@ class AnthropicApiClient:
                 if attempt >= MAX_RETRIES or not _is_retryable(exc):
                     raise RequestFailure(str(exc)) from exc
                 delay = _get_retry_delay(attempt)
-                log.warning("Anthropic API failed (attempt %d/%d), retrying in %.1fs: %s",
-                            attempt + 1, MAX_RETRIES + 1, delay, exc)
+                log.warning("Anthropic API failed (attempt %d/%d, url=%s), retrying in %.1fs: %s",
+                            attempt + 1, MAX_RETRIES + 1, self._base_url, delay, exc)
                 yield ApiRetryEvent(
                     message=str(exc), attempt=attempt + 1,
                     max_attempts=MAX_RETRIES + 1, delay_seconds=delay,
@@ -165,7 +184,12 @@ class AnthropicApiClient:
                 await asyncio.sleep(delay)
 
         if last_error is not None:
-            raise RequestFailure(str(last_error)) from last_error
+            msg = str(last_error)
+            if any(x in msg.lower() for x in ("connect", "timeout", "dns", "resolve")):
+                raise RequestFailure(
+                    f"Cannot reach Anthropic API at {self._base_url}. "
+                    f"Check network connectivity.  Details: {msg}"
+                ) from last_error
 
     async def _stream_once(self, request: ApiMessageRequest) -> AsyncIterator[ApiStreamEvent]:
         body: dict[str, Any] = {
@@ -348,6 +372,10 @@ class OpenAICompatibleClient:
         self._api_key = api_key
         self._base_url = (base_url or self.BASE_URL).rstrip("/")
 
+    @property
+    def base_url(self) -> str:
+        return self._base_url
+
     async def stream_message(self, request: ApiMessageRequest) -> AsyncIterator[ApiStreamEvent]:
         last_error: Exception | None = None
 
@@ -361,10 +389,13 @@ class OpenAICompatibleClient:
             except Exception as exc:
                 last_error = exc
                 if attempt >= MAX_RETRIES or not _is_retryable(exc):
-                    raise _translate_openai_error(getattr(exc, "status_code", 0), {"error": {"message": str(exc)}}) from exc
+                    api_status = getattr(exc, "status_code", None)
+                    if api_status:
+                        raise _translate_openai_error(api_status, {"error": {"message": str(exc)}}) from exc
+                    raise RequestFailure(str(exc)) from exc
                 delay = _get_retry_delay(attempt)
-                log.warning("OpenAI API failed (attempt %d/%d), retrying in %.1fs: %s",
-                            attempt + 1, MAX_RETRIES + 1, delay, exc)
+                log.warning("OpenAI API failed (attempt %d/%d, url=%s), retrying in %.1fs: %s",
+                            attempt + 1, MAX_RETRIES + 1, self._base_url, delay, exc)
                 yield ApiRetryEvent(
                     message=str(exc), attempt=attempt + 1,
                     max_attempts=MAX_RETRIES + 1, delay_seconds=delay,
@@ -372,7 +403,14 @@ class OpenAICompatibleClient:
                 await asyncio.sleep(delay)
 
         if last_error is not None:
-            raise RequestFailure(str(last_error)) from last_error
+            msg = str(last_error)
+            if any(x in msg.lower() for x in ("connect", "timeout", "dns", "resolve")):
+                raise RequestFailure(
+                    f"Cannot reach API at {self._base_url}. "
+                    f"Check: 1) network connectivity  2) OPENHARNESS_BASE_URL is correct  "
+                    f"3) a VPN/proxy may be required.  Details: {msg}"
+                ) from last_error
+            raise RequestFailure(msg) from last_error
 
     async def _stream_once(self, request: ApiMessageRequest) -> AsyncIterator[ApiStreamEvent]:
         openai_messages = _convert_messages_to_openai(request.messages, request.system_prompt)
@@ -382,8 +420,11 @@ class OpenAICompatibleClient:
             "model": request.model,
             "messages": openai_messages,
             "stream": True,
-            "max_tokens": request.max_tokens,
         }
+        if needs_max_completion_tokens(request.model):
+            body["max_completion_tokens"] = request.max_tokens
+        else:
+            body["max_tokens"] = request.max_tokens
         if openai_tools:
             body["tools"] = openai_tools
 
@@ -473,4 +514,6 @@ async def _read_body(resp: httpx.Response) -> dict[str, Any]:
     try:
         return resp.json()
     except Exception:
-        return {"error": {"message": await resp.aread()}}
+        raw = await resp.aread()
+        text = raw.decode("utf-8", errors="replace").strip()[:500] if raw else "(empty response)"
+        return {"error": {"message": text}}

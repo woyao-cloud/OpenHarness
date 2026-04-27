@@ -6,26 +6,121 @@ import os
 from pathlib import Path
 
 
-def get_api_key() -> str | None:
-    """Return the API key from environment."""
-    return os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
+# Known providers with default base URLs and models
+PROVIDER_CONFIGS: dict[str, dict[str, str]] = {
+    "anthropic": {
+        "env_key": "ANTHROPIC_API_KEY",
+        "default_base_url": "https://api.anthropic.com/v1/messages",
+        "default_model": "claude-sonnet-4-6",
+    },
+    "openai": {
+        "env_key": "OPENAI_API_KEY",
+        "default_base_url": "https://api.openai.com/v1/chat/completions",
+        "default_model": "gpt-4o",
+    },
+    "deepseek": {
+        "env_key": "DEEPSEEK_API_KEY",
+        "default_base_url": "https://api.deepseek.com/v1/chat/completions",
+        "default_model": "deepseek-v4-flash",
+    },
+}
+
+# Model families that use max_completion_tokens instead of max_tokens
+MAX_COMPLETION_TOKEN_MODELS = (
+    "gpt-5", "o1", "o3", "o4",
+    "deepseek-reasoner",
+)
+
+
+# Model name → provider hints (used when multiple API keys are set)
+MODEL_PROVIDER_HINTS: dict[str, str] = {
+    "claude": "anthropic",
+    "deepseek": "deepseek",
+    "gpt": "openai",
+    "o1": "openai",
+    "o3": "openai",
+    "o4": "openai",
+}
+
+
+def get_api_key(provider_hint: str | None = None) -> str | None:
+    """Return the API key from environment.
+
+    If *provider_hint* is given, check that provider's env var first.
+    """
+    if provider_hint:
+        cfg = PROVIDER_CONFIGS.get(provider_hint)
+        if cfg:
+            val = os.environ.get(cfg["env_key"])
+            if val:
+                return val
+    for name, cfg in PROVIDER_CONFIGS.items():
+        val = os.environ.get(cfg["env_key"])
+        if val:
+            return val
+    return None
 
 
 def get_api_provider() -> str:
-    """Return the provider type: 'anthropic' or 'openai'."""
-    if os.environ.get("OPENAI_API_KEY"):
-        return "openai"
+    """Auto-detect the provider from available env vars or model name.
+
+    Resolution order:
+      1. OPENHARNESS_PROVIDER env var (explicit override)
+      2. Model name hint (e.g. model starting with "deepseek" → deepseek)
+         even if DEEPSEEK_API_KEY is not set — the model name is the intent
+      3. First configured API key env var found
+      4. Fallback to anthropic
+    """
+    explicit = os.environ.get("OPENHARNESS_PROVIDER")
+    if explicit and explicit in PROVIDER_CONFIGS:
+        return explicit
+
+    model = os.environ.get("OPENHARNESS_MODEL", "")
+    model_lower = model.strip().lower()
+    for prefix, provider in MODEL_PROVIDER_HINTS.items():
+        if model_lower.startswith(prefix):
+            return provider
+
+    for name, cfg in PROVIDER_CONFIGS.items():
+        if os.environ.get(cfg["env_key"]):
+            return name
     return "anthropic"
 
 
+def get_provider_config(provider: str | None = None) -> dict[str, str]:
+    """Return the resolved provider config (env overrides + defaults)."""
+    if provider is None:
+        provider = get_api_provider()
+    cfg = PROVIDER_CONFIGS.get(provider, PROVIDER_CONFIGS["openai"])
+    return {
+        "env_key": cfg["env_key"],
+        "base_url": os.environ.get("OPENHARNESS_BASE_URL") or cfg["default_base_url"],
+        "model": os.environ.get("OPENHARNESS_MODEL") or cfg["default_model"],
+    }
+
+
 def get_model() -> str:
-    """Return the model name from environment or a default."""
-    return os.environ.get("OPENHARNESS_MODEL", "claude-sonnet-4-6")
+    """Return the model name from environment or provider default."""
+    return get_provider_config()["model"]
 
 
 def get_base_url() -> str | None:
-    """Return an optional custom base URL."""
+    """Return the base URL from environment or provider default."""
     return os.environ.get("OPENHARNESS_BASE_URL") or None
+
+
+def get_provider_base_url(provider: str) -> str:
+    """Return the provider's default base URL if no env override."""
+    return os.environ.get("OPENHARNESS_BASE_URL") or PROVIDER_CONFIGS.get(provider, PROVIDER_CONFIGS["openai"])["default_base_url"]
+
+
+def needs_max_completion_tokens(model: str) -> bool:
+    """Check whether the model requires max_completion_tokens instead of max_tokens."""
+    normalized = model.strip().lower()
+    # Strip provider prefix like "deepseek/" -> "deepseek-chat"
+    if "/" in normalized:
+        normalized = normalized.rsplit("/", 1)[-1]
+    return any(normalized.startswith(prefix) for prefix in MAX_COMPLETION_TOKEN_MODELS)
 
 
 def get_max_tokens() -> int:
