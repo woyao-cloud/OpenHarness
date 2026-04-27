@@ -149,7 +149,7 @@ async def run_once(prompt: str) -> None:
         max_tokens=get_max_tokens(),
         max_turns=get_max_turns(),
     )
-
+    log.debug("单次运行prompt: %s", prompt)
     await run_prompt(engine, prompt)
 
 
