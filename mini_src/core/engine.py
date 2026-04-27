@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import AsyncIterator
 
 from mini_src.api.client import SupportsStreamingMessages
+from mini_src.core.compact import AutoCompactState, auto_compact_if_needed
 from mini_src.core.cost_tracker import CostTracker
 from mini_src.core.events import AssistantTurnComplete, StreamEvent
 from mini_src.core.loop import AskUserPrompt, QueryContext, run_query
@@ -28,6 +29,11 @@ class QueryEngine:
         max_turns: int | None = 8,
         ask_user_prompt: AskUserPrompt | None = None,
         tool_metadata: dict[str, object] | None = None,
+        # Compaction / context window management
+        auto_compact_enabled: bool = True,
+        context_window_tokens: int | None = None,
+        auto_compact_threshold_tokens: int | None = None,
+        preserve_recent: int = 6,
     ) -> None:
         self._api_client = api_client
         self._tool_registry = tool_registry
@@ -38,6 +44,10 @@ class QueryEngine:
         self._max_turns = max_turns
         self._ask_user_prompt = ask_user_prompt
         self._tool_metadata = tool_metadata or {}
+        self._auto_compact_state = AutoCompactState() if auto_compact_enabled else None
+        self._context_window_tokens = context_window_tokens
+        self._auto_compact_threshold_tokens = auto_compact_threshold_tokens
+        self._preserve_recent = preserve_recent
         self._messages: list[ConversationMessage] = []
         self._cost_tracker = CostTracker()
 
@@ -107,6 +117,10 @@ class QueryEngine:
             max_turns=self._max_turns,
             ask_user_prompt=self._ask_user_prompt,
             tool_metadata=self._tool_metadata,
+            auto_compact_state=self._auto_compact_state,
+            context_window_tokens=self._context_window_tokens,
+            auto_compact_threshold_tokens=self._auto_compact_threshold_tokens,
+            preserve_recent=self._preserve_recent,
         )
         query_messages = list(self._messages)
 
@@ -116,3 +130,27 @@ class QueryEngine:
             if usage is not None:
                 self._cost_tracker.add(usage)
             yield event
+
+    async def compact(self) -> str:
+        """Manually trigger compaction on the current conversation."""
+        if not self._messages:
+            return "(no messages to compact)"
+        if self._auto_compact_state is None:
+            return "(auto-compact is disabled)"
+
+        compacted, was_compacted = await auto_compact_if_needed(
+            list(self._messages),
+            api_client=self._api_client,
+            model=self._model,
+            system_prompt=self._system_prompt,
+            state=self._auto_compact_state,
+            preserve_recent=self._preserve_recent,
+            force=True,
+            trigger="manual",
+            context_window_tokens=self._context_window_tokens,
+            auto_compact_threshold_tokens=self._auto_compact_threshold_tokens,
+        )
+        if was_compacted:
+            self._messages = list(compacted)
+            return "(conversation compacted)"
+        return "(compaction not needed)"

@@ -17,6 +17,12 @@ from mini_src.api.client import (
     SupportsStreamingMessages,
 )
 from mini_src.api.usage import UsageSnapshot
+from mini_src.core.compact import (
+    AutoCompactState,
+    auto_compact_if_needed,
+    estimate_message_tokens,
+    should_autocompact,
+)
 from mini_src.core.messages import ConversationMessage, ToolResultBlock
 from mini_src.core.events import (
     AssistantTextDelta,
@@ -55,6 +61,11 @@ class QueryContext:
     max_turns: int | None = 200
     ask_user_prompt: AskUserPrompt | None = None
     tool_metadata: dict[str, object] | None = None
+    # Compaction / context window management
+    auto_compact_state: AutoCompactState | None = None
+    context_window_tokens: int | None = None
+    auto_compact_threshold_tokens: int | None = None
+    preserve_recent: int = 6
 
 
 def _is_prompt_too_long_error(exc: Exception) -> bool:
@@ -77,6 +88,22 @@ async def run_query(
 ) -> AsyncIterator[tuple[StreamEvent, UsageSnapshot | None]]:
     """Run the conversation loop until the model stops requesting tools."""
     turn_count = 0
+
+    # Proactive compaction: check before the first model call
+    if context.auto_compact_state is not None:
+        compacted_messages, was_compacted = await auto_compact_if_needed(
+            list(messages),
+            api_client=context.api_client,
+            model=context.model,
+            system_prompt=context.system_prompt,
+            state=context.auto_compact_state,
+            preserve_recent=context.preserve_recent,
+            context_window_tokens=context.context_window_tokens,
+            auto_compact_threshold_tokens=context.auto_compact_threshold_tokens,
+        )
+        if was_compacted:
+            messages[:] = compacted_messages
+            yield StatusEvent(message="Conversation compacted to free context window."), None
 
     while context.max_turns is None or turn_count < context.max_turns:
         turn_count += 1
@@ -112,6 +139,30 @@ async def run_query(
 
         except Exception as exc:
             error_msg = str(exc)
+
+            # Reactive compaction: if the context window is full, try to compact and retry
+            if _is_prompt_too_long_error(exc) and context.auto_compact_state is not None:
+                yield StatusEvent(message="Context window exceeded, compacting..."), None
+                compacted, was_compacted = await auto_compact_if_needed(
+                    list(messages),
+                    api_client=context.api_client,
+                    model=context.model,
+                    system_prompt=context.system_prompt,
+                    state=context.auto_compact_state,
+                    preserve_recent=context.preserve_recent,
+                    force=True,
+                    trigger="reactive",
+                    context_window_tokens=context.context_window_tokens,
+                    auto_compact_threshold_tokens=context.auto_compact_threshold_tokens,
+                )
+                if was_compacted:
+                    messages[:] = compacted
+                    yield StatusEvent(message="Reactive compaction complete, retrying..."), None
+                    continue  # retry with compacted messages
+                else:
+                    yield ErrorEvent(message=f"Compaction failed: {error_msg}"), None
+                    return
+
             if "connect" in error_msg.lower() or "timeout" in error_msg.lower():
                 yield ErrorEvent(message=f"Network error: {error_msg}"), None
             else:

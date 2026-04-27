@@ -8,6 +8,10 @@ Environment variables:
   OPENHARNESS_BASE_URL — Custom API base URL (optional)
   OPENHARNESS_MAX_TOKENS — Max tokens per request (default: 4096)
   OPENHARNESS_MAX_TURNS — Max agentic turns (default: 200)
+  OPENHARNESS_AUTO_COMPACT_ENABLED — Enable auto-compaction (default: 1)
+  OPENHARNESS_CONTEXT_WINDOW_TOKENS — Context window token limit (optional)
+  OPENHARNESS_AUTO_COMPACT_THRESHOLD_TOKENS — Auto-compact threshold (optional)
+  OPENHARNESS_COMPACT_PRESERVE_RECENT — Messages to keep during compact (default: 6)
 
 Examples:
   # Anthropic
@@ -39,7 +43,12 @@ import sys
 from pathlib import Path
 
 from mini_src.api.client import AnthropicApiClient, OpenAICompatibleClient
-from mini_src.config import get_api_key, get_api_provider, get_base_url, get_max_tokens, get_max_turns, get_model, get_provider_base_url
+from mini_src.config import (
+    get_api_key, get_api_provider, get_base_url, get_max_tokens, get_max_turns,
+    get_model, get_provider_base_url,
+    get_auto_compact_threshold_tokens, get_compact_preserve_recent,
+    get_context_window_tokens, is_auto_compact_enabled,
+)
 from mini_src.core.engine import QueryEngine
 from mini_src.core.events import (
     AssistantTextDelta,
@@ -87,7 +96,7 @@ def build_api_client():
 
 async def run_interactive(engine: QueryEngine) -> None:
     """Run in interactive REPL mode."""
-    print("Mini OpenHarness — type your prompt, or /quit to exit.")
+    print("Mini OpenHarness — type your prompt, or /quit, /clear, /compact.")
     print()
 
     while True:
@@ -104,6 +113,10 @@ async def run_interactive(engine: QueryEngine) -> None:
         if prompt == "/clear":
             engine.clear()
             print("(conversation cleared)")
+            continue
+        if prompt == "/compact":
+            status = await engine.compact()
+            print(status)
             continue
 
         await run_prompt(engine, prompt)
@@ -148,6 +161,10 @@ async def run_once(prompt: str) -> None:
         system_prompt=SYSTEM_PROMPT,
         max_tokens=get_max_tokens(),
         max_turns=get_max_turns(),
+        auto_compact_enabled=is_auto_compact_enabled(),
+        context_window_tokens=get_context_window_tokens(),
+        auto_compact_threshold_tokens=get_auto_compact_threshold_tokens(),
+        preserve_recent=get_compact_preserve_recent(),
     )
     log.debug("单次运行prompt: %s", prompt)
     await run_prompt(engine, prompt)
@@ -182,6 +199,10 @@ def main() -> None:
             system_prompt=SYSTEM_PROMPT,
             max_tokens=get_max_tokens(),
             max_turns=get_max_turns(),
+            auto_compact_enabled=is_auto_compact_enabled(),
+            context_window_tokens=get_context_window_tokens(),
+            auto_compact_threshold_tokens=get_auto_compact_threshold_tokens(),
+            preserve_recent=get_compact_preserve_recent(),
         )
         asyncio.run(run_interactive(engine))
 

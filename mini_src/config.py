@@ -142,3 +142,29 @@ def get_data_dir() -> Path:
         data_dir = Path.home() / ".openharness" / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir
+
+
+# ── Compaction config ─────────────────────────────────────────────────
+
+
+def get_context_window_tokens() -> int | None:
+    """Return explicit context window override (tokens) or None."""
+    val = os.environ.get("OPENHARNESS_CONTEXT_WINDOW_TOKENS")
+    return int(val) if val and val.strip() else None
+
+
+def get_auto_compact_threshold_tokens() -> int | None:
+    """Return explicit auto-compact threshold override or None."""
+    val = os.environ.get("OPENHARNESS_AUTO_COMPACT_THRESHOLD_TOKENS")
+    return int(val) if val and val.strip() else None
+
+
+def get_compact_preserve_recent() -> int:
+    """Number of recent messages to preserve verbatim during compaction."""
+    return int(os.environ.get("OPENHARNESS_COMPACT_PRESERVE_RECENT", "6"))
+
+
+def is_auto_compact_enabled() -> bool:
+    """Whether auto-compaction is enabled (default: enabled)."""
+    val = os.environ.get("OPENHARNESS_AUTO_COMPACT_ENABLED", "1")
+    return val.lower() in ("1", "true", "yes")
