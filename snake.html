@@ -335,6 +335,25 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   };
 }
 
+// ─── 速度管理 ───
+function updateSpeed() {
+  const preset = DIFFICULTY_PRESETS[currentDifficulty];
+  const level = Math.floor(score / preset.speedEvery);
+  speedLevel = 1 + level;
+  const newInterval = Math.max(preset.minInterval, preset.baseInterval - level * preset.speedInc);
+  if (newInterval !== currentInterval) {
+    currentInterval = newInterval;
+    speedLevelEl.textContent = `Lv.${speedLevel}`;
+    // 重启循环以应用新速度
+    if (gameLoop) {
+      clearInterval(gameLoop);
+      gameLoop = setInterval(update, currentInterval);
+    }
+    return true; // 速度变化了
+  }
+  return false;
+}
+
 // 更新
 function update() {
   if (gameOver || win || paused) return;
@@ -342,10 +361,16 @@ function update() {
   // 应用方向
   direction = { ...nextDirection };
 
-  const head = {
+  let head = {
     x: snake[0].x + direction.dx,
     y: snake[0].y + direction.dy,
   };
+
+  // 穿墙模式：取模环绕
+  if (wallMode) {
+    head.x = ((head.x % GRID_SIZE) + GRID_SIZE) % GRID_SIZE;
+    head.y = ((head.y % GRID_SIZE) + GRID_SIZE) % GRID_SIZE;
+  }
 
   // 检查是否吃到食物
   const ate = head.x === food.x && head.y === food.y;
@@ -354,7 +379,7 @@ function update() {
   snake.unshift(head);
 
   if (!ate) {
-    snake.pop(); // 没吃到，移除尾
+    snake.pop();
   } else {
     score++;
     scoreEl.textContent = score;
@@ -363,16 +388,34 @@ function update() {
       highScoreEl.textContent = highScore;
       localStorage.setItem('snakeHighScore', highScore);
     }
+    soundEat();
+    // 检查速度升级
+    if (updateSpeed()) {
+      soundSpeedUp();
+    }
     spawnFood();
     if (win) { draw(); return; }
   }
 
   // 碰撞检测
-  const hitWall = head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE;
+  if (!wallMode) {
+    // 普通模式：撞墙即死
+    const hitWall = head.x < 0 || head.x >= GRID_SIZE || head.y < 0 || head.y >= GRID_SIZE;
+    if (hitWall) {
+      gameOver = true;
+      soundGameOver();
+      draw();
+      return;
+    }
+  }
   const hitSelf = snake.slice(1).some(seg => seg.x === head.x && seg.y === head.y);
-
-  if (hitWall || hitSelf) {
+  if (hitSelf) {
     gameOver = true;
+    soundGameOver();
+  }
+
+  if (win) {
+    soundWin();
   }
 
   draw();
@@ -380,8 +423,6 @@ function update() {
 
 // 控制
 function handleKey(e) {
-  e.preventDefault();
-
   if (e.key === ' ') {
     e.preventDefault();
     paused = !paused;
@@ -441,16 +482,35 @@ function handleTouchEnd(e) {
 function start() {
   if (gameLoop) clearInterval(gameLoop);
   init();
-  gameLoop = setInterval(update, TICK_INTERVAL);
+  gameLoop = setInterval(update, currentInterval);
 }
+
+// ─── 事件绑定 ───
 
 // 重启
 document.getElementById('restartBtn').addEventListener('click', start);
 
+// 难度切换
+document.getElementById('difficultySelect').addEventListener('change', function() {
+  currentDifficulty = this.value;
+  start(); // 重新开始
+});
+
+// 穿墙模式切换
+const wallModeBtn = document.getElementById('wallModeBtn');
+wallModeBtn.addEventListener('click', function() {
+  wallMode = !wallMode;
+  this.textContent = wallMode ? '🧱 穿墙: 开' : '🧱 穿墙: 关';
+  this.classList.toggle('active', wallMode);
+});
+
 // 键盘事件
 document.addEventListener('keydown', (e) => {
   const arrows = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','w','a','s','d'];
-  if (arrows.includes(e.key)) handleKey(e);
+  if (arrows.includes(e.key)) {
+    e.preventDefault();
+    handleKey(e);
+  }
 });
 
 // 触摸事件
