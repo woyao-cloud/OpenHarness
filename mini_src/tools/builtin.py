@@ -187,15 +187,8 @@ class GlobTool(BaseTool):
                 *cmd, cwd=str(root),
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
             )
-            lines: list[str] = []
             assert process.stdout is not None
-            while len(lines) < arguments.limit:
-                raw = await process.stdout.readline()
-                if not raw:
-                    break
-                line = raw.decode("utf-8", errors="replace").strip()
-                if line:
-                    lines.append(line)
+            lines = await _read_lines(process.stdout, arguments.limit)
             if len(lines) >= arguments.limit and process.returncode is None:
                 process.terminate()
             await process.wait()
@@ -288,13 +281,8 @@ class GrepTool(BaseTool):
 
     async def _collect_matches(self, process: asyncio.subprocess.Process, matches: list[str], limit: int) -> None:
         assert process.stdout is not None
-        while len(matches) < limit:
-            raw = await process.stdout.readline()
-            if not raw:
-                break
-            line = raw.decode("utf-8", errors="replace").rstrip("\n")
-            if line:
-                matches.append(line)
+        lines = await _read_lines(process.stdout, limit)
+        matches.extend(lines)
 
     def _python_grep(self, root: Path, arguments: GrepToolInput) -> ToolResult:
         flags = 0 if arguments.case_sensitive else re.IGNORECASE
@@ -329,6 +317,27 @@ class GrepTool(BaseTool):
 
 
 # ── Helpers ────────────────────────────────────────────────────────────
+
+
+async def _read_lines(stream: asyncio.StreamReader, max_lines: int) -> list[str]:
+    """Read lines from a stream, handling lines that exceed the asyncio buffer limit."""
+    lines: list[str] = []
+    buf = b""
+    while len(lines) < max_lines:
+        chunk = await stream.read(65536)
+        if not chunk:
+            break
+        buf += chunk
+        while b"\n" in buf and len(lines) < max_lines:
+            raw_line, buf = buf.split(b"\n", 1)
+            line = raw_line.decode("utf-8", errors="replace").strip()
+            if line:
+                lines.append(line)
+    if buf and len(lines) < max_lines:
+        line = buf.decode("utf-8", errors="replace").strip()
+        if line:
+            lines.append(line)
+    return lines
 
 
 def _resolve_path(base: Path, candidate: str) -> Path:

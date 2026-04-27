@@ -106,6 +106,7 @@ async def run_query(
                     ), None
                     continue
                 if isinstance(event, ApiMessageCompleteEvent):
+                    log.debug("model response: %s", event.message)
                     final_message = event.message
                     usage = event.usage
 
@@ -135,11 +136,13 @@ async def run_query(
 
         if len(tool_calls) == 1:
             tc = tool_calls[0]
+            log.debug("tool_call: %s", tc)
             yield ToolExecutionStarted(tool_name=tc.name, tool_input=tc.input), None
             result = await _execute_tool_call(context, tc.name, tc.id, tc.input)
             yield ToolExecutionCompleted(
                 tool_name=tc.name, output=result.content, is_error=result.is_error,
             ), None
+            log.debug("tool_call end: %s", tc)
             tool_results = [result]
         else:
             for tc in tool_calls:
@@ -190,7 +193,7 @@ async def _execute_tool_call(
             content=f"Unknown tool: {tool_name}",
             is_error=True,
         )
-
+    log.debug("tool_call input: %s", tool_input)
     try:
         parsed_input = tool.input_model.model_validate(tool_input)
     except Exception as exc:
