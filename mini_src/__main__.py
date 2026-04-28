@@ -12,6 +12,7 @@ Environment variables:
   OPENHARNESS_CONTEXT_WINDOW_TOKENS — Context window token limit (optional)
   OPENHARNESS_AUTO_COMPACT_THRESHOLD_TOKENS — Auto-compact threshold (optional)
   OPENHARNESS_COMPACT_PRESERVE_RECENT — Messages to keep during compact (default: 6)
+  CLAUDE_CODE_COORDINATOR_MODE — Set to 1 to enable coordinator mode with subagent tools
 
 Examples:
   # Anthropic
@@ -60,6 +61,12 @@ from mini_src.core.events import (
 )
 from mini_src.tools.base import ToolRegistry
 from mini_src.tools.builtin import create_default_tool_registry
+
+from mini_src.coordinator.coordinator_mode import (
+    get_coordinator_system_prompt,
+    get_coordinator_user_context,
+    is_coordinator_mode,
+)
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -144,13 +151,19 @@ async def run_prompt(engine: QueryEngine, prompt: str) -> None:
     print()
 
 
-async def run_once(prompt: str) -> None:
+async def run_once(
+    prompt: str,
+    *,
+    coordinator_mode: bool = False,
+    system_prompt: str = SYSTEM_PROMPT,
+    tool_metadata: dict | None = None,
+) -> None:
     """Run a single prompt and exit."""
     api_client = build_api_client()
     model = get_model()
 
     registry = ToolRegistry()
-    for tool in create_default_tool_registry():
+    for tool in create_default_tool_registry(coordinator_mode=coordinator_mode):
         registry.register(tool)
 
     engine = QueryEngine(
@@ -158,13 +171,14 @@ async def run_once(prompt: str) -> None:
         tool_registry=registry,
         cwd=Path.cwd(),
         model=model,
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=system_prompt,
         max_tokens=get_max_tokens(),
         max_turns=get_max_turns(),
         auto_compact_enabled=is_auto_compact_enabled(),
         context_window_tokens=get_context_window_tokens(),
         auto_compact_threshold_tokens=get_auto_compact_threshold_tokens(),
         preserve_recent=get_compact_preserve_recent(),
+        tool_metadata=tool_metadata or {},
     )
     log.debug("单次运行prompt: %s", prompt)
     await run_prompt(engine, prompt)
@@ -174,21 +188,42 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Mini OpenHarness — minimal AI coding assistant")
     parser.add_argument("prompt", nargs="*", help="Prompt to run (omit for interactive mode)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--task-worker", action="store_true", help="Run stdin-driven worker loop")
+    parser.add_argument("--api-key", help="API key override")
+    parser.add_argument("--task-id", help="Task ID for notification XML")
+    parser.add_argument("--model", help="Model override")
+    parser.add_argument("--max-turns", type=int, help="Max agentic turns")
 
     args = parser.parse_args()
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
+    if args.task_worker:
+        from mini_src.worker import run_task_worker
+        asyncio.run(run_task_worker(
+            cwd=str(Path.cwd()),
+            model=args.model or get_model(),
+            max_turns=args.max_turns or get_max_turns(),
+            api_key=args.api_key,
+            task_id=args.task_id,
+        ))
+        return
+
+    coordinator_mode = is_coordinator_mode()
+    system_prompt = get_coordinator_system_prompt() if coordinator_mode else SYSTEM_PROMPT
+    tool_metadata = get_coordinator_user_context() if coordinator_mode else {}
+
     if args.prompt:
         prompt = " ".join(args.prompt)
-        asyncio.run(run_once(prompt))
+        asyncio.run(run_once(prompt, coordinator_mode=coordinator_mode,
+                              system_prompt=system_prompt, tool_metadata=tool_metadata))
     else:
         api_client = build_api_client()
-        model = get_model()
+        model = args.model or get_model()
 
         registry = ToolRegistry()
-        for tool in create_default_tool_registry():
+        for tool in create_default_tool_registry(coordinator_mode=coordinator_mode):
             registry.register(tool)
 
         engine = QueryEngine(
@@ -196,13 +231,14 @@ def main() -> None:
             tool_registry=registry,
             cwd=Path.cwd(),
             model=model,
-            system_prompt=SYSTEM_PROMPT,
+            system_prompt=system_prompt,
             max_tokens=get_max_tokens(),
-            max_turns=get_max_turns(),
+            max_turns=args.max_turns or get_max_turns(),
             auto_compact_enabled=is_auto_compact_enabled(),
             context_window_tokens=get_context_window_tokens(),
             auto_compact_threshold_tokens=get_auto_compact_threshold_tokens(),
             preserve_recent=get_compact_preserve_recent(),
+            tool_metadata=tool_metadata,
         )
         asyncio.run(run_interactive(engine))
 

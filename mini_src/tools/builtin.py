@@ -347,9 +347,13 @@ def _resolve_path(base: Path, candidate: str) -> Path:
     return path.resolve()
 
 
-def create_default_tool_registry() -> list[Any]:
-    """Return a list of default tool instances."""
-    return [
+def create_default_tool_registry(*, coordinator_mode: bool = False) -> list[Any]:
+    """Return a list of default tool instances.
+
+    When *coordinator_mode* is True, also register coordinator tools
+    (agent, send_message, task_stop, task_output, task_list, task_get).
+    """
+    tools: list[Any] = [
         FileReadTool(),
         FileWriteTool(),
         FileEditTool(),
@@ -357,3 +361,22 @@ def create_default_tool_registry() -> list[Any]:
         GlobTool(),
         GrepTool(),
     ]
+
+    if coordinator_mode:
+        from mini_src.tools.agent_tool import AgentTool
+        from mini_src.tools.send_message_tool import SendMessageTool
+        from mini_src.tools.task_get_tool import TaskGetTool
+        from mini_src.tools.task_list_tool import TaskListTool
+        from mini_src.tools.task_output_tool import TaskOutputTool
+        from mini_src.tools.task_stop_tool import TaskStopTool
+
+        tools.extend([
+            AgentTool(),
+            SendMessageTool(),
+            TaskStopTool(),
+            TaskOutputTool(),
+            TaskListTool(),
+            TaskGetTool(),
+        ])
+
+    return tools

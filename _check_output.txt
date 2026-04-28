@@ -1,0 +1,33 @@
+=== Phase 1: Task types ===
+  TaskRecord OK, TaskType=typing.Literal['local_bash', 'local_agent'], TaskStatus=typing.Literal['pending', 'running', 'completed', 'failed', 'killed']
+=== Phase 1: Task manager ===
+  BackgroundTaskManager OK, manager=<mini_src.tasks.manager.BackgroundTaskManager object at 0x000001D0951178C0>
+=== Phase 2: Swarm types ===
+  All swarm types OK, BackendType=typing.Literal['subprocess']
+=== Phase 2: Subprocess backend ===
+  SubprocessBackend OK
+=== Phase 3: Agent definitions ===
+  AgentDefinition OK
+    general-purpose: system_prompt=You are an agent for mini_src. Given the user's me...
+    Explore: system_prompt=You are an agent for mini_src. Given the user's me...
+    worker: system_prompt=You are an agent for mini_src. Given the user's me...
+=== Phase 3: Coordinator mode ===
+  All coordinator mode OK
+  Tools: ['agent', 'send_message', 'task_stop', 'task_output', 'task_list', 'task_get']
+  System prompt: 3481 chars
+  XML round-trip OK
+=== Phase 4: Agent tool ===
+  AgentTool OK
+=== Phase 4: Send message tool ===
+  SendMessageTool OK
+=== Phase 4: Task tools ===
+  All task tools OK
+=== Phase 5: Worker ===
+  Worker imports OK
+  decode_worker_line OK
+=== Phase 5: Coordinator mode tool registration ===
+  Normal tools (6): ['read_file', 'write_file', 'edit_file', 'bash', 'glob', 'grep']
+  Coordinator tools (12): ['read_file', 'write_file', 'edit_file', 'bash', 'glob', 'grep', 'agent', 'send_message', 'task_stop', 'task_output', 'task_list', 'task_get']
+  Tool registration OK: coordinator tools only added in coordinator_mode
+
+=== ALL CHECKS PASSED ===
