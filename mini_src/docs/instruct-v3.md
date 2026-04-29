@@ -212,3 +212,29 @@
   # Worker mode (used by subagent subprocesses automatically)
   echo '{"text":"read src/main.py"}' | python -m mini_src --task-worker
   # → streams assistant text + <task-notification> XML to stdout
+
+
+    具体流程：
+
+  1. 启动 coordinator 模式：CLAUDE_CODE_COORDINATOR_MODE=1 python -m mini_src
+  2. AI 在一次回复中发起多个 agent 工具调用，例如：
+    - agent(description="研究后端API", subagent_type="Explore", prompt="...")
+    - agent(description="研究前端组件", subagent_type="Explore", prompt="...")
+  3. 所有 agent 工具调用被并行执行（asyncio.gather），每个 spawn 一个 python -m mini_src --task-worker 子进程
+  4. coordinater 用 task_get/task_output 轮询各 worker 的完成状态和输出
+  5. worker 完成时，输出的最后一行是 <task-notification> XML，包含 task-id、status、summary、result、usage
+
+  示例交互：
+
+  You: 让我并行调查这个问题。
+    ▶ agent({"description": "研究数据库schema", "prompt": "..."})
+    ▶ agent({"description": "研究API路由", "prompt": "..."})
+    两个worker已启动，等待结果...
+
+  User: <task-notification><task-id>researcher@default</task-id><status>completed</status>...</task-notification>
+  User: <task-notification><task-id>researcher@default</task-id><status>completed</status>...</task-notification>
+
+  You: 结果已返回，[合成结果...]
+    ▶ send_message({"task_id": "researcher@default", "message": "继续修复..."})
+
+  关键点：多个 agent 工具调用必须在 AI 的同一条回复消息中发出，run_query() 才会用 asyncio.gather 并行执行它们。如果 AI 分多条消息发出，worker 会串行启动。
